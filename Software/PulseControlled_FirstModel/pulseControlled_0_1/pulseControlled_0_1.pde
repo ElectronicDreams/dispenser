@@ -51,7 +51,7 @@ One Stop/Reset button
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 11000 //22 seconds for a full tube
+#define MAX_STEPS_FILL_TUBE 11000 //time running motor to a full tube
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
@@ -115,8 +115,8 @@ void loop() {
 void InitializeSequence()
 {
   ResetAllFlavours();
-  CheckEStops();
-  //SelfTest_Motors();
+  //CheckEStops();
+  SelfTest_Motors();
 }
 
 void CheckEStops()
@@ -142,7 +142,7 @@ int FindTopEStopTrigger()
   //Select each motor and pulse them down, then pulse them up
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    int currentMotor = i + 1
+    int currentMotor = i + 1;
     RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_DOWN);
     if(digitalRead(PIN_TOP_ESTOP) == LOW)
       return currentMotor;
@@ -157,7 +157,7 @@ int FindBottomEStopTrigger()
   //Select each motor and pulse them down, then pulse them up
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    int currentMotor = i + 1
+    int currentMotor = i + 1;
     RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_UP);
     if(digitalRead(PIN_BOTTOM_ESTOP) == LOW)
       return currentMotor;
@@ -327,7 +327,7 @@ void RunMotor(int motorNumber, unsigned long runDuration, int dir)
 
 }
 
-void RunMotorChecking(int motorNumber,int dir)
+void RunMotor(int motorNumber,int dir)
 {
   //set direction
   digitalWrite(PIN_MOTOR_DIR,dir); 
