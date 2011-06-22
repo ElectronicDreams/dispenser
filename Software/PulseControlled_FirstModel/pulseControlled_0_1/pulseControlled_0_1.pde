@@ -23,6 +23,11 @@ One Stop/Reset button
 #define PIN_MOTOR_DIR 8
 #define PIN_MOTOR_PULSE 9
 
+#define PIN_INPUT_START 6
+#define PIN_INPUT_STOP 5
+
+#define PIN_TOP_ESTOP 10
+#define PIN_BOTTOM_ESTOP 7
 
 ////Flavour select lights
 //#define PIN_LIGHT_1 8
@@ -40,18 +45,16 @@ One Stop/Reset button
 #define PIN_INPUT_FLAV_5 4
 #define PIN_INPUT_FLAV_6 5
 
-#define PIN_INPUT_START 6
-#define PIN_INPUT_STOP 5
-
 #define DIR_UP HIGH
 #define DIR_DOWN LOW
 
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 22000 //16 seconds for a full tube
+#define MAX_STEPS_FILL_TUBE 11000 //22 seconds for a full tube
 
 #define MOTOR_SELECT_STEPS 200
+#define MOTOR_ESTOP_INCREMENT 200
 #define MOTOR_PREP_STEPS 500
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 
@@ -71,6 +74,12 @@ void setup() {
   pinMode(PIN_MOTOR_DIR, OUTPUT);
   pinMode(PIN_MOTOR_PULSE, OUTPUT);
   
+  pinMode(PIN_TOP_ESTOP,INPUT);
+  pinMode(PIN_BOTTOM_ESTOP, INPUT);
+  
+  pinMode(PIN_INPUT_START, INPUT);
+  pinMode(PIN_INPUT_STOP, INPUT);
+
   
   pinMode(PIN_INPUT_FLAV_1, INPUT);
   pinMode(PIN_INPUT_FLAV_2, INPUT);
@@ -78,9 +87,6 @@ void setup() {
   pinMode(PIN_INPUT_FLAV_4, INPUT);
   pinMode(PIN_INPUT_FLAV_5, INPUT);
   pinMode(PIN_INPUT_FLAV_6, INPUT);
-  
-  pinMode(PIN_INPUT_START, INPUT);
-  pinMode(PIN_INPUT_STOP, INPUT);
 
   //Set speed
   //setPwmFrequency(9,4);
@@ -109,9 +115,55 @@ void loop() {
 void InitializeSequence()
 {
   ResetAllFlavours();
-  SelfTest_Motors();
+  CheckEStops();
+  //SelfTest_Motors();
 }
 
+void CheckEStops()
+{
+  int topTrigger = 0;
+  int bottomTrigger = 0;
+  
+  //If top estop is triggered, then check which one trigered
+  if(digitalRead(PIN_TOP_ESTOP) == HIGH)
+    FindTopEStopTrigger();  
+ 
+  //If bottom estop is trigered then find out which flavour it is and disable it
+  if(digitalRead(PIN_BOTTOM_ESTOP) == HIGH)
+    FindBottomEStopTrigger();    
+  
+}
+
+//Starting with motor 1, find which one has triggered the EStop (also check the bottom eStop)
+int FindTopEStopTrigger()
+{
+  Serial.println("TOP ESTOP TRIGERED, TRYING TO FIND FLAVOUR TRIGGER");
+  
+  //Select each motor and pulse them down, then pulse them up
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    int currentMotor = i + 1
+    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_DOWN);
+    if(digitalRead(PIN_TOP_ESTOP) == LOW)
+      return currentMotor;
+    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_UP);
+  }  
+}
+
+int FindBottomEStopTrigger()
+{
+  Serial.println("TOP ESTOP TRIGERED, TRYING TO FIND FLAVOUR TRIGGER");
+  
+  //Select each motor and pulse them down, then pulse them up
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    int currentMotor = i + 1
+    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_UP);
+    if(digitalRead(PIN_BOTTOM_ESTOP) == LOW)
+      return currentMotor;
+    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_DOWN);
+  }  
+}
 void SelfTest_Motors()
 {
   //Select each motor and pulse them down, then pulse them up
@@ -275,7 +327,7 @@ void RunMotor(int motorNumber, unsigned long runDuration, int dir)
 
 }
 
-void RunMotor(int motorNumber,int dir)
+void RunMotorChecking(int motorNumber,int dir)
 {
   //set direction
   digitalWrite(PIN_MOTOR_DIR,dir); 
