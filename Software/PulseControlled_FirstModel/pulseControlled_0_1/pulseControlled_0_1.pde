@@ -45,8 +45,8 @@ One Stop/Reset button
 #define PIN_INPUT_FLAV_5 4
 #define PIN_INPUT_FLAV_6 5
 
-#define DIR_UP HIGH
-#define DIR_DOWN LOW
+#define DIR_UP LOW
+#define DIR_DOWN HIGH
 
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
