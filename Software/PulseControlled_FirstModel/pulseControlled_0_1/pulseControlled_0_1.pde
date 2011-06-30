@@ -51,11 +51,11 @@ One Stop/Reset button
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 11000 //time running motor to a full tube
+#define MAX_STEPS_FILL_TUBE 32000 //time running motor to a full tube
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-#define MOTOR_PREP_STEPS 500
+#define MOTOR_PREP_STEPS 1000
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
