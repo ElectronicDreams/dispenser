@@ -51,7 +51,7 @@ One Stop/Reset button
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 32000 //time running motor to a full tube
+#define MAX_STEPS_FILL_TUBE 3200 //time running motor to a full tube
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
@@ -299,7 +299,7 @@ void Pour()
 
 stop_Pouring:  
   StopAllMotors();
-  
+  delay(5000);
   ResetSelectedMotors(); 
 }
 
