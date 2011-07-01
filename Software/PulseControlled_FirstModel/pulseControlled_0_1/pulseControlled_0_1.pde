@@ -26,16 +26,13 @@ One Stop/Reset button
 #define PIN_INPUT_START 6
 #define PIN_INPUT_STOP 5
 
-#define PIN_TOP_ESTOP 10
-#define PIN_BOTTOM_ESTOP 7
+#define PIN_ESTOP_READ 10
+#define PIN_ESTOP_LOAD 3
+#define PIN_ESTOP_CLOCK 4
 
-////Flavour select lights
-//#define PIN_LIGHT_1 8
-//#define PIN_LIGHT_2 9
-//#define PIN_LIGHT_3 10
-//#define PIN_LIGHT_4 11
-//#define PIN_LIGHT_5 12
-//#define PIN_LIGHT_6 13
+#define PIN_LIGHTS_SCLK 1
+#define PIN_LIGHTS_CLK 2
+#define PIN_LIGHTS_SERIAL 7
 
 //Flavour select pins, use analog inputs
 #define PIN_INPUT_FLAV_1 0
@@ -62,6 +59,47 @@ boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, fals
 int FlavourSelectInputs[NUMBER_OF_FLAVOURS] = {PIN_INPUT_FLAV_1, PIN_INPUT_FLAV_2, PIN_INPUT_FLAV_3, PIN_INPUT_FLAV_4, PIN_INPUT_FLAV_5, PIN_INPUT_FLAV_6};
 int HowManyFlavoursSelected = 0;
 
+word ESTOP_B_1 = word(B00000000,B00000001);
+word ESTOP_B_2 = word(B00000000,B00000010);
+word ESTOP_B_3 = word(B00000000,B00000100);
+word ESTOP_B_4 = word(B00000000,B00001000);
+word ESTOP_B_5 = word(B00000000,B00010000);
+word ESTOP_B_6 = word(B00000000,B00100000);
+
+word ESTOP_T_1 = word(B00000001,B00000000);
+word ESTOP_T_2 = word(B00000010,B00000000);
+word ESTOP_T_3 = word(B00000100,B00000000);
+word ESTOP_T_4 = word(B00001000,B00000000);
+word ESTOP_T_5 = word(B00010000,B00000000);
+word ESTOP_T_6 = word(B00100000,B00000000);
+
+unsigned long LIGHT_WHITE_BOTTOMRIB = 1; //  00000000 00000000 00000000 00000001
+unsigned long LIGHT_WHITE_TOPRIB = 2; //     00000000 00000000 00000000 00000010
+
+unsigned long LIGHT_RGB_FLAVOUR1 = 28; //    00000000 00000000 00000000 00011100
+unsigned long LIGHT_RGB_FLAVOUR2 = 224; //   00000000 00000000 00000000 11100000
+unsigned long LIGHT_RGB_FLAVOUR3 = 1792; //  00000000 00000000 00000111 00000000
+unsigned long LIGHT_RGB_FLAVOUR4 = 14336; // 00000000 00000000 00111000 00000000
+unsigned long LIGHT_RGB_FLAVOUR5 = 114688; //00000000 00000001 11000000 00000000
+unsigned long LIGHT_RGB_FLAVOUR6 = 917504; //00000000 00001110 00000000 00000000
+
+unsigned long LIGHT_RGB_TUBES1 = 7340032; // 00000000 01110000 00000000 00000000
+unsigned long LIGHT_RGB_TUBES2 = 58720256; //00000011 10000000 00000000 00000000
+unsigned long LIGHT_RGB_TUBES3 = 469762048;//00011100 00000000 00000000 00000000
+
+unsigned long LIGHT_RGB_CS = 3758096384; //  11100000 00000000 00000000 00000000
+
+byte RGB_WHITE = B111;
+byte RGB_OFF = B000;
+byte RGB_RED = B100;
+byte RGB_GREEN = B010;
+byte RGB_BLUE = B001;
+byte RGB_YELLOW = B110;
+byte RGB_CYAN = B011;
+byte RGB_MAGENTA = B101;
+
+unsigned long LIGHT_ALL_ON = 4294967295;
+unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
 
 void setup() {
   Serial.begin(9600);
@@ -73,9 +111,10 @@ void setup() {
   pinMode(PIN_MOTOR_EN, OUTPUT);
   pinMode(PIN_MOTOR_DIR, OUTPUT);
   pinMode(PIN_MOTOR_PULSE, OUTPUT);
-  
-  pinMode(PIN_TOP_ESTOP,INPUT);
-  pinMode(PIN_BOTTOM_ESTOP, INPUT);
+
+  pinMode(PIN_ESTOP_READ, INPUT);
+  pinMode(PIN_ESTOP_LOAD, OUTPUT);
+  pinMode(PIN_ESTOP_CLOCK, OUTPUT);
   
   pinMode(PIN_INPUT_START, INPUT);
   pinMode(PIN_INPUT_STOP, INPUT);
@@ -88,9 +127,6 @@ void setup() {
   pinMode(PIN_INPUT_FLAV_5, INPUT);
   pinMode(PIN_INPUT_FLAV_6, INPUT);
 
-  //Set speed
-  //setPwmFrequency(9,4);
-  
   //Disable all motors
    StopAllMotors();
   
@@ -98,6 +134,9 @@ void setup() {
   
   //Permanently output a PWM output to the MOTOR_PIN_PULSE
   analogWrite(PIN_MOTOR_PULSE, 175);
+  
+  //EStop parallel in shift register, load set to HIGH (turned LOW to LOAD)
+  digitalWrite(PIN_ESTOP_LOAD, HIGH);
   
   InitializeSequence();
 }
@@ -116,54 +155,49 @@ void InitializeSequence()
 {
   ResetAllFlavours();
   //CheckEStops();
+  
+  SelfTest_Lights();
+  
   SelfTest_Motors();
 }
 
 void CheckEStops()
 {
-  int topTrigger = 0;
-  int bottomTrigger = 0;
-  
-  //If top estop is triggered, then check which one trigered
-  if(digitalRead(PIN_TOP_ESTOP) == HIGH)
-    FindTopEStopTrigger();  
- 
-  //If bottom estop is trigered then find out which flavour it is and disable it
-  if(digitalRead(PIN_BOTTOM_ESTOP) == HIGH)
-    FindBottomEStopTrigger();    
+
   
 }
 
-//Starting with motor 1, find which one has triggered the EStop (also check the bottom eStop)
-int FindTopEStopTrigger()
+void SelfTest_Lights()
 {
-  Serial.println("TOP ESTOP TRIGERED, TRYING TO FIND FLAVOUR TRIGGER");
+  //Turn all lights ON for 2 seconds, then flash each of them
+  //off every 500 ms
+  CurrentLightValues = 4294967295;
+  UpdateLights(CurrentLightValues);
+  delay(2000);
   
-  //Select each motor and pulse them down, then pulse them up
-  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  //Build a light sequence array
+  unsigned long LightSequence[12];
+  LightSequence[0] = LIGHT_ALL_ON & ~LIGHT_WHITE_TOPRIB;
+  LightSequence[1] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR1;
+  LightSequence[2] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR2;  
+  LightSequence[3] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES1;  
+  LightSequence[4] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR3; 
+  LightSequence[5] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR4; 
+  LightSequence[6] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES2; 
+  LightSequence[7] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR5; 
+  LightSequence[8] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR6; 
+  LightSequence[9] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES3;
+  LightSequence[10] = LIGHT_ALL_ON & ~LIGHT_RGB_CS;  
+  LightSequence[11] = LIGHT_ALL_ON & ~LIGHT_WHITE_BOTTOMRIB;
+  
+  for(int i = 0; i < 12 ; i++)
   {
-    int currentMotor = i + 1;
-    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_DOWN);
-    if(digitalRead(PIN_TOP_ESTOP) == LOW)
-      return currentMotor;
-    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_UP);
-  }  
+    UpdateLights(LightSequence[i]);
+    delay(500);
+  }
+  
 }
 
-int FindBottomEStopTrigger()
-{
-  Serial.println("TOP ESTOP TRIGERED, TRYING TO FIND FLAVOUR TRIGGER");
-  
-  //Select each motor and pulse them down, then pulse them up
-  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-  {
-    int currentMotor = i + 1;
-    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_UP);
-    if(digitalRead(PIN_BOTTOM_ESTOP) == LOW)
-      return currentMotor;
-    RunMotor(currentMotor,MOTOR_ESTOP_INCREMENT,DIR_DOWN);
-  }  
-}
 void SelfTest_Motors()
 {
   //Select each motor and pulse them down, then pulse them up
@@ -426,36 +460,43 @@ void SelectMotor(int motorNumber)
   
   digitalWrite(PIN_MOTOR_ST, HIGH);
 } 
-  void setPwmFrequency(int pin, int divisor) {
-    byte mode;
-    if(pin == 5 || pin == 6 || pin == 9 || pin == 10) {
-      switch(divisor) {
-        case 1: mode = 0x01; break;
-        case 8: mode = 0x02; break;
-        case 64: mode = 0x03; break;
-        case 256: mode = 0x04; break;
-        case 1024: mode = 0x05; break;
-        default: return;
-      }
-      if(pin == 5 || pin == 6) {
-        TCCR0B = TCCR0B & 0b11111000 | mode;
-      } else {
-        TCCR1B = TCCR1B & 0b11111000 | mode;
-      }
-    } else if(pin == 3 || pin == 11) {
-      switch(divisor) {
-        case 1: mode = 0x01; break;
-        case 8: mode = 0x02; break;
-        case 32: mode = 0x03; break;
-        case 64: mode = 0x04; break;
-        case 128: mode = 0x05; break;
-        case 256: mode = 0x06; break;
-        case 1024: mode = 0x7; break;
-        default: return;
-      }
-      TCCR2B = TCCR2B & 0b11111000 | mode;
+
+  word EStopTriggered()
+  {
+    //Read in all EStop Sensors
+    digitalWrite(PIN_ESTOP_LOAD,LOW);
+    delay(10);
+    digitalWrite(PIN_ESTOP_LOAD,HIGH);
+    delay(10);
+    
+    word valuesRead = word(B00000000,B00000000);
+    //Shift EStop values in
+    for(int i = 0; i <=15 ; i++)
+    {
+      valuesRead = valuesRead >> 1;
+      valuesRead = valuesRead | (digitalRead(PIN_ESTOP_READ) & word(B10000000,B00000000));
+      digitalWrite(PIN_ESTOP_CLOCK,LOW);
+      delay(10);
+      digitalWrite(PIN_ESTOP_CLOCK,HIGH);
     }
+    
+    return valuesRead;
   }
 
 
-
+//Takes the ligthValue and push it out to the 32-Bit Power register array
+void UpdateLights(unsigned long lightValues)
+{
+  digitalWrite(PIN_LIGHTS_SCLK, LOW);
+  digitalWrite(PIN_LIGHTS_CLK, LOW);
+  
+  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues);
+  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 8);
+  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 16);
+  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 24);
+  
+  digitalWrite(PIN_LIGHTS_CLK, HIGH);  
+  delay(1);
+  digitalWrite(PIN_LIGHTS_CLK, LOW);  
+  
+}
