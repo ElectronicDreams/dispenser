@@ -56,8 +56,10 @@ One Stop/Reset button
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
+byte AvailableFlavours = byte(B00111111);
 int FlavourSelectInputs[NUMBER_OF_FLAVOURS] = {PIN_INPUT_FLAV_1, PIN_INPUT_FLAV_2, PIN_INPUT_FLAV_3, PIN_INPUT_FLAV_4, PIN_INPUT_FLAV_5, PIN_INPUT_FLAV_6};
 int HowManyFlavoursSelected = 0;
+word eStops = word(B00000000,B00000000);
 
 word ESTOP_B_1 = word(B00000000,B00000001);
 word ESTOP_B_2 = word(B00000000,B00000010);
@@ -154,17 +156,37 @@ void loop() {
 void InitializeSequence()
 {
   ResetAllFlavours();
-  //CheckEStops();
+  
+  DetectAvailableFlavours();
   
   SelfTest_Lights();
   
   SelfTest_Motors();
 }
 
-void CheckEStops()
+//Check all eStops and make flavours unavailable in case 
+//eStop is triggered
+void DetectAvailableFlavours()
 {
-
+  eStops = CheckEStops();
   
+  //Flavours with at least one of the eStop triggered is made unavailable.
+  AvailableFlavours = ~(highByte(eStops) | lowByte(eStops));
+}
+
+boolean IsFlavourAvailable(int flavourIndex)
+{
+  return AvailableFlavours & (B00000001 << flavourIndex) != 0;
+}
+
+boolean IsTopEStopTriggered(int flavourIndex)
+{
+  return highByte(eStops) & (B00000001 << flavourNumberIndex) > 0;
+}
+
+boolean IsBottomEStopTriggered(int flavourIndex)
+{
+  return lowByte(eStops) & (B00000001 << flavourNumberIndex) > 0;
 }
 
 void SelfTest_Lights()
@@ -201,10 +223,13 @@ void SelfTest_Lights()
 void SelfTest_Motors()
 {
   //Select each motor and pulse them down, then pulse them up
-  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  for(int i = 1; i <= NUMBER_OF_FLAVOURS; i++)
   {
-    RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_DOWN);
-    RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_UP);
+    if(IsFlavourAvailable(i - 1))
+    {
+      RunMotor(i,MOTOR_SELECT_STEPS,DIR_DOWN);
+      RunMotor(i,MOTOR_SELECT_STEPS,DIR_UP);
+    }
   }
 }
 
@@ -279,7 +304,7 @@ void PrepSelectedMotors()
   //move 20 steps
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    if(SelectedFlavours[i])
+    if(SelectedFlavours[i] && IsFlavourAvailable(i))
     {
       RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_DOWN);
     }
@@ -292,7 +317,7 @@ void ResetSelectedMotors()
   //move 20 steps
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    if(SelectedFlavours[i])
+    if(SelectedFlavours[i] && IsFlavourAvailable(i))
     {
       RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_UP);
     }
@@ -304,7 +329,9 @@ void ResetSelectedMotors()
 // user interrupted
 void Pour()
 {
-    
+  
+  DetectAvailableFlavours();
+  
   PrepSelectedMotors();
   
   //Calculate number of steps per flavour based on number of flavours selected.
@@ -319,7 +346,7 @@ void Pour()
     {
       if(digitalRead(PIN_INPUT_STOP) == HIGH)
         goto stop_Pouring;
-      if(SelectedFlavours[i])
+      if(SelectedFlavours[i] && IsFlavourAvailable(i))
       {
         RunMotor(i+1,MOTOR_RUN_STEPS_PER_CYCLE, DIR_DOWN);
         stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE;
@@ -328,6 +355,11 @@ void Pour()
         goto stop_Pouring;
         
     }
+    
+    DetectAvailableFlavours();
+    //if all flavours are exhausted, simply exit (avoids infinite loop)
+    if((lowByte(eStops) | highByte(eStops)) & B00111111 > 0)
+      goto stop_Pouring;
 
   }
 
@@ -339,12 +371,15 @@ stop_Pouring:
 
 void RunMotor(int motorNumber, unsigned long runDuration, int dir)
 {
-  //set direction
-  digitalWrite(PIN_MOTOR_DIR,dir);
-
-  unsigned long startTime = millis();
-  unsigned long timeNow = millis();
-  unsigned int stepCount = 0;
+  if(IsFlavourAvailable(motorNumber - 1))
+  {
+  
+    //set direction
+    digitalWrite(PIN_MOTOR_DIR,dir);
+  
+    unsigned long startTime = millis();
+    unsigned long timeNow = millis();
+    unsigned int stepCount = 0;
 
     Serial.println("");
     
@@ -358,14 +393,17 @@ void RunMotor(int motorNumber, unsigned long runDuration, int dir)
     SelectMotor(motorNumber);
     delay(runDuration);
     SelectMotor(0);
-
+  }
 }
 
 void RunMotor(int motorNumber,int dir)
 {
-  //set direction
-  digitalWrite(PIN_MOTOR_DIR,dir); 
-  SelectMotor(motorNumber);
+  if(IsFlavourAvailable(motorNumber - 1))
+  {
+    //set direction
+    digitalWrite(PIN_MOTOR_DIR,dir); 
+    SelectMotor(motorNumber);
+  }
    
 }
 
@@ -390,35 +428,65 @@ void ReadInFlavourButtons()
     //It will set it to true if the flavour was not previously selected
     if(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
     {
-      SelectedFlavours[i] = SelectedFlavours[i] ^ true;
-      if(SelectedFlavours[i])
-      {      
-        HowManyFlavoursSelected++;
-        //Pulse that motor
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
-        delay(100);
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);
-        //Wait until button is released
-        while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
-        {
-          RunMotor(selectedMotor,DIR_DOWN);
-        }
-        StopAllMotors();
-        
-      } else
+      if(IsFlavourAvailable(i))
       {
-        HowManyFlavoursSelected--;
-        //Pulse that motor
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
-        delay(1000);
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);  
-  
-        //Wait until button is released
-        while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
+        SelectedFlavours[i] = SelectedFlavours[i] ^ true;
+        if(SelectedFlavours[i])
+        {      
+          HowManyFlavoursSelected++;
+          //Pulse that motor
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
+          delay(100);
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);
+          //Wait until button is released
+          while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
+          {
+            RunMotor(selectedMotor,DIR_DOWN);
+          }
+          StopAllMotors();
+          
+        } else
         {
-          RunMotor(selectedMotor,DIR_UP);
+          HowManyFlavoursSelected--;
+          //Pulse that motor
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
+          delay(1000);
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);  
+    
+          //Wait until button is released
+          while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
+          {
+            RunMotor(selectedMotor,DIR_UP);
+          }
+          StopAllMotors();      
         }
-        StopAllMotors();      
+      } else //This flavour is not available because one of it's eStops is triggered
+      {
+        //Check it's top eStop, if it is triggered then assume that we are reloading
+        //so move motor down until released
+        //Make this Flavour Available
+        AvailableFlavour = AvailableFlavour | (B00000001 << i);
+        if(IsTopEStopTriggered(i))
+        {
+          //Wait until button is released or the bottom eStop is triggered
+          while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]) || IsBottomEStopTriggered(i))
+          {
+            RunMotor(selectedMotor,DIR_DOWN);
+            eStops = CheckEStops();
+          }
+          StopAllMotors();        
+        }
+        else if(IsBottomEStopTriggered(i))
+        {
+         //Wait until button is released or top eStop is triggered
+          while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]) || IsTopEStopTriggered(i))
+          {
+            RunMotor(selectedMotor,DIR_UP);
+            eStops = CheckEStops();
+          }
+          StopAllMotors();              
+        }
+        DetectAvailableFlavours();
       }
 
     }
@@ -461,7 +529,7 @@ void SelectMotor(int motorNumber)
   digitalWrite(PIN_MOTOR_ST, HIGH);
 } 
 
-  word EStopTriggered()
+  word CheckEStops()
   {
     //Read in all EStop Sensors
     digitalWrite(PIN_ESTOP_LOAD,LOW);
