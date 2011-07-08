@@ -181,12 +181,12 @@ boolean IsFlavourAvailable(int flavourIndex)
 
 boolean IsTopEStopTriggered(int flavourIndex)
 {
-  return highByte(eStops) & (B00000001 << flavourNumberIndex) > 0;
+  return highByte(eStops) & (B00000001 << flavourIndex) > 0;
 }
 
 boolean IsBottomEStopTriggered(int flavourIndex)
 {
-  return lowByte(eStops) & (B00000001 << flavourNumberIndex) > 0;
+  return lowByte(eStops) & (B00000001 << flavourIndex) > 0;
 }
 
 void SelfTest_Lights()
