@@ -54,6 +54,9 @@ One Stop/Reset button
 #define MOTOR_ESTOP_INCREMENT 200
 #define MOTOR_PREP_STEPS 1000
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
+#define MOTOR_TOPUP_STEPS 200
+#define TOPUP_WAIT_DELAY 5000
+#define TOPUP_DELAY 40000
 
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
 byte AvailableFlavours = byte(B00111111);
@@ -148,6 +151,8 @@ void loop() {
   WaitForUserInputs();
   
   Pour();
+  
+  TopUp();
   
   CleanUp();
   
@@ -362,11 +367,35 @@ void Pour()
       goto stop_Pouring;
 
   }
+  
+  //After the initial pour, wait and hold for 40 seconds
+  //but monitor the GO button
+  
 
 stop_Pouring:  
-  StopAllMotors();
-  delay(5000);
-  ResetSelectedMotors(); 
+  return;
+}
+
+void TopUp()
+{
+  unsigned long startTime = millis();
+  while(digitalRead(PIN_INPUT_STOP) == LOW && (millis() - startTime < TOPUP_DELAY))
+  { 
+
+    while(digitalRead(PIN_INPUT_START) == HIGH)
+    {
+      DetectAvailableFlavours();
+      for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+      {
+        if(SelectedFlavours[i] && IsFlavourAvailable(i))
+        {
+          RunMotor(i+1,MOTOR_TOPUP_STEPS / HowManyFlavoursSelected, DIR_DOWN);
+        }
+        
+      }
+      delay(TOPUP_WAIT_DELAY);
+    }
+  }
 }
 
 void RunMotor(int motorNumber, unsigned long runDuration, int dir)
@@ -415,7 +444,8 @@ void StopAllMotors()
 //Perform cleanup steps at the end of a pouring sequence
 void CleanUp()
 {
-  ResetAllFlavours();
+  StopAllMotors();
+  ResetSelectedMotors(); 
 }
 
 void ReadInFlavourButtons()
@@ -465,7 +495,7 @@ void ReadInFlavourButtons()
         //Check it's top eStop, if it is triggered then assume that we are reloading
         //so move motor down until released
         //Make this Flavour Available
-        AvailableFlavour = AvailableFlavour | (B00000001 << i);
+        AvailableFlavours = AvailableFlavours | (B00000001 << i);
         if(IsTopEStopTriggered(i))
         {
           //Wait until button is released or the bottom eStop is triggered
