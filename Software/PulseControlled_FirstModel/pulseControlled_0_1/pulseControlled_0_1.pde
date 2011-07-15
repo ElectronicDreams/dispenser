@@ -13,6 +13,10 @@ One Stop/Reset button
 
 */
 
+//// ***** Includes **********
+#include <MsTimer2.h>
+#include <QueueList.h>
+
 //// **** Pin definitions ****
 
 #define PIN_MOTOR_SH 12
@@ -88,11 +92,11 @@ unsigned long LIGHT_RGB_FLAVOUR4 = 14336; // 00000000 00000000 00111000 00000000
 unsigned long LIGHT_RGB_FLAVOUR5 = 114688; //00000000 00000001 11000000 00000000
 unsigned long LIGHT_RGB_FLAVOUR6 = 917504; //00000000 00001110 00000000 00000000
 
-unsigned long LIGHT_RGB_TUBES1 = 7340032; // 00000000 01110000 00000000 00000000
-unsigned long LIGHT_RGB_TUBES2 = 58720256; //00000011 10000000 00000000 00000000
-unsigned long LIGHT_RGB_TUBES3 = 469762048;//00011100 00000000 00000000 00000000
+unsigned long LIGHT_RGB_START = 7340032; // 00000000 01110000 00000000 00000000
+unsigned long LIGHT_RGB_CS1 = 58720256; //00000011 10000000 00000000 00000000
+unsigned long LIGHT_RGB_CS2 = 469762048;//00011100 00000000 00000000 00000000
 
-unsigned long LIGHT_RGB_CS = 3758096384; //  11100000 00000000 00000000 00000000
+unsigned long LIGHT_RGB_CS3 = 3758096384; //  11100000 00000000 00000000 00000000
 
 byte RGB_WHITE = B111;
 byte RGB_OFF = B000;
@@ -105,6 +109,26 @@ byte RGB_MAGENTA = B101;
 
 unsigned long LIGHT_ALL_ON = 4294967295;
 unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
+unsigned long LightEventSliceCount = 0;
+
+byte EVENT_OFF = 0; //ONE-TIME Turns specified light OFF
+byte EVENT_ON_COLOR = 1; //ONE-TIME Turns specified light ON to the selected color
+byte EVENT_BLINK = 2; //CONTINUOUS Toggles the selected light between OFF and the color selected on each cycle
+byte EVENT_SLICE_OFF = 3; //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
+                      //when the slice number is matched
+
+//Structs
+typedef struct {
+  byte eventType; //the type of light event (see above EVENT_X byte constant
+  word lightCode; //the code to identifier the current light (see above LIGHT_X_Y word constant)
+  byte color; //a color code (see above RGB_X code)
+  byte slice; //the slice value for this light
+  byte totalSlices;// Modulo value to determine slice. Translates to "slice x oout of totalSlice".
+}  LightEvent;
+
+QueueList <LightEvent> lightEvents;
+QueueList <LightEvent> continuousEvents;
+QueueList <LightEvent> tempEvents;
 
 void setup() {
   Serial.begin(9600);
@@ -144,6 +168,10 @@ void setup() {
   digitalWrite(PIN_ESTOP_LOAD, HIGH);
   
   InitializeSequence();
+  
+  //Setup the light timer interface
+  MsTimer2::set(250, HandleLights); 
+  MsTimer2::start();
 }
 
 void loop() {
@@ -207,14 +235,14 @@ void SelfTest_Lights()
   LightSequence[0] = LIGHT_ALL_ON & ~LIGHT_WHITE_TOPRIB;
   LightSequence[1] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR1;
   LightSequence[2] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR2;  
-  LightSequence[3] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES1;  
+  LightSequence[3] = LIGHT_ALL_ON & ~LIGHT_RGB_START;  
   LightSequence[4] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR3; 
   LightSequence[5] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR4; 
-  LightSequence[6] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES2; 
+  LightSequence[6] = LIGHT_ALL_ON & ~LIGHT_RGB_CS1; 
   LightSequence[7] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR5; 
   LightSequence[8] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR6; 
-  LightSequence[9] = LIGHT_ALL_ON & ~LIGHT_RGB_TUBES3;
-  LightSequence[10] = LIGHT_ALL_ON & ~LIGHT_RGB_CS;  
+  LightSequence[9] = LIGHT_ALL_ON & ~LIGHT_RGB_CS2;
+  LightSequence[10] = LIGHT_ALL_ON & ~LIGHT_RGB_CS3;  
   LightSequence[11] = LIGHT_ALL_ON & ~LIGHT_WHITE_BOTTOMRIB;
   
   for(int i = 0; i < 12 ; i++)
@@ -581,6 +609,44 @@ void SelectMotor(int motorNumber)
     return valuesRead;
   }
 
+
+//Looks at the programmed light events list (blink, stop blink, turn on, turn off, color)
+//and update the lightValues + push new values accordingly
+void HandleLights()
+{
+
+  while(!lightEvents.isEmpty())
+  {
+    LigthEvent le;
+    le = lightEvents.pop();
+    switch (le.eventType)
+    {
+      case EVENT_OFF:
+        break;
+      
+      case EVENT_ON_COLOR:
+        break;
+        
+      case EVENT_BLINK:
+        
+        continuousEvents.push(le);
+        break;
+        
+      case EVENT_SLICE_OFF:
+      
+        continuousEvents.push(le);
+        break;
+    }
+    
+    LightEventSliceCount++;
+  }
+  
+  
+  UpdateLights(CurrentLightValues);
+  lightEvents = continuousEvents;
+  continousEvents = tempEvents;
+  
+}
 
 //Takes the ligthValue and push it out to the 32-Bit Power register array
 void UpdateLights(unsigned long lightValues)
