@@ -15,7 +15,7 @@ One Stop/Reset button
 
 //// ***** Includes **********
 #include <MsTimer2.h>
-#include <QueueList.h>
+//#include <QueueList.h>
 
 //// **** Pin definitions ****
 
@@ -64,6 +64,7 @@ One Stop/Reset button
 
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
 byte AvailableFlavours = byte(B00111111);
+byte HowManyAvailableFlavours = NUMBER_OF_FLAVOURS;
 int FlavourSelectInputs[NUMBER_OF_FLAVOURS] = {PIN_INPUT_FLAV_1, PIN_INPUT_FLAV_2, PIN_INPUT_FLAV_3, PIN_INPUT_FLAV_4, PIN_INPUT_FLAV_5, PIN_INPUT_FLAV_6};
 int HowManyFlavoursSelected = 0;
 word eStops = word(B00000000,B00000000);
@@ -91,6 +92,7 @@ unsigned long LIGHT_RGB_FLAVOUR3 = 1792; //  00000000 00000000 00000111 00000000
 unsigned long LIGHT_RGB_FLAVOUR4 = 14336; // 00000000 00000000 00111000 00000000
 unsigned long LIGHT_RGB_FLAVOUR5 = 114688; //00000000 00000001 11000000 00000000
 unsigned long LIGHT_RGB_FLAVOUR6 = 917504; //00000000 00001110 00000000 00000000
+unsigned long FlavourLightsArray[NUMBER_OF_FLAVOURS] = {LIGHT_RGB_FLAVOUR1, LIGHT_RGB_FLAVOUR2, LIGHT_RGB_FLAVOUR3, LIGHT_RGB_FLAVOUR4, LIGHT_RGB_FLAVOUR5, LIGHT_RGB_FLAVOUR6};
 
 unsigned long LIGHT_RGB_START = 7340032; // 00000000 01110000 00000000 00000000
 unsigned long LIGHT_RGB_CS1 = 58720256; //00000011 10000000 00000000 00000000
@@ -111,24 +113,26 @@ unsigned long LIGHT_ALL_ON = 4294967295;
 unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
 unsigned long LightEventSliceCount = 0;
 
-byte EVENT_OFF = 0; //ONE-TIME Turns specified light OFF
-byte EVENT_ON_COLOR = 1; //ONE-TIME Turns specified light ON to the selected color
-byte EVENT_BLINK = 2; //CONTINUOUS Toggles the selected light between OFF and the color selected on each cycle
-byte EVENT_SLICE_OFF = 3; //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
+
+#define EVENT_OFF 0 //ONE-TIME Turns specified light OFF
+#define EVENT_ON_COLOR 1 //ONE-TIME Turns specified light ON to the selected color
+#define EVENT_BLINK 2 //CONTINUOUS Toggles the selected light between OFF and the color selected on each cycle
+#define EVENT_SLICE_OFF 3 //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
                       //when the slice number is matched
-
-//Structs
-typedef struct {
-  byte eventType; //the type of light event (see above EVENT_X byte constant
-  word lightCode; //the code to identifier the current light (see above LIGHT_X_Y word constant)
-  byte color; //a color code (see above RGB_X code)
-  byte slice; //the slice value for this light
-  byte totalSlices;// Modulo value to determine slice. Translates to "slice x oout of totalSlice".
-}  LightEvent;
-
-QueueList <LightEvent> lightEvents;
-QueueList <LightEvent> continuousEvents;
-QueueList <LightEvent> tempEvents;
+#define EVENT_SLICE_ON 4 //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
+                      //when the slice number is matched
+////Structs
+//typedef struct {
+//  byte eventType; //the type of light event (see above EVENT_X byte constant
+//  word lightCode; //the code to identifier the current light (see above LIGHT_X_Y word constant)
+//  byte color; //a color code (see above RGB_X code)
+//  byte slice; //the slice value for this light
+//  byte totalSlices;// Modulo value to determine slice. Translates to "slice x oout of totalSlice".
+//}  LightEvent;
+//
+//QueueList <LightEvent> lightEvents;
+//QueueList <LightEvent> continuousEvents;
+//QueueList <LightEvent> tempEvents;
 
 void setup() {
   Serial.begin(9600);
@@ -176,6 +180,8 @@ void setup() {
 
 void loop() {
   
+  SetLightsInitialState();
+  
   WaitForUserInputs();
   
   Pour();
@@ -184,6 +190,29 @@ void loop() {
   
   CleanUp();
   
+}
+
+void SetLightsInitialState()
+{
+  //Turn on top and bottom rib
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,1,0,0); 
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,1,0,0);
+  
+  //Turn off center stage
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS1,0,0,0); 
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS2,0,0,0); 
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS3,0,0,0);   
+  
+  //Turn off start button
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+  
+  //Turn available colors green solid
+  //and unavailable ones off
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    RegisterLightEvent(IsFlavourAvailable(i),FlavourLightsArray[i],RGB_GREEN,0,0); 
+  }
+
 }
 
 void InitializeSequence()
@@ -205,6 +234,13 @@ void DetectAvailableFlavours()
   
   //Flavours with at least one of the eStop triggered is made unavailable.
   AvailableFlavours = ~(highByte(eStops) | lowByte(eStops));
+  byte availableCount =0;
+  for(int i = 0 ; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    if(IsFlavourAvailable(i))
+     availableCount ++; 
+  }
+  HowManyAvailableFlavours = availableCount;
 }
 
 boolean IsFlavourAvailable(int flavourIndex)
@@ -289,15 +325,50 @@ void DumpSelectedFlavour()
   Serial.println(HowManyFlavoursSelected); 
 }
 
+//Registers the cycle on event based on the available flavour
+//and the selected flavour
+void CycleFlavourButtons()
+{
+  ClearLightEvents();
+  
+  int slice = 0;
+  
+  for(int i = 0; i < NUMBER_OF_FLAVOURS;i++)
+  {
+    if(SelectedFlavours[i] && IsFlavourAvailable(i))
+    {
+      RegisterLightEvent(EVENT_ON_COLOR,FlavourLightsArray[i],RGB_GREEN,0,0);
+    }
+    else if(!SelectedFlavours[i] & IsFlavourAvailable(i))
+    {
+      RegisterLightEvent(EVENT_SLICE_ON,FlavourLightsArray[i],RGB_BLUE,slice,HowManyAvailableFlavours + HowManyFlavoursSelected);
+      slice++;
+    }
+  }
+}
+
 void WaitForUserInputs()
 {
     unsigned long count = 0;
   
+
+  
 waitForFlavourOnly:
+  //Turn the start button off
+  ClearLightEvents();
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+
   //First, wait for at least one flavour to be selected
+  int savedNumberOfFlavourSelected = HowManyFlavoursSelected;
   while(HowManyFlavoursSelected < 1)
   {
     ReadInFlavourButtons(); 
+    if(HowManyFlavoursSelected != savedNumberOfFlavourSelected)
+    {
+      savedNumberOfFlavourSelected = HowManyFlavoursSelected;
+      CycleFlavourButtons();
+    }
+    
      count++;  
     if(count % 1000 == 0)
     {
@@ -308,12 +379,22 @@ waitForFlavourOnly:
     
   }
   
-waitForGo:
+waitForGo: 
   //Now wait for either an extra flavour to be selected/deselected
   //But also check the "GO" button or reset
+  
+  //Turn the start button on to green
+  RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);
+  
   while(digitalRead(PIN_INPUT_START) != HIGH)
   {
     ReadInFlavourButtons();
+    if(HowManyFlavoursSelected != savedNumberOfFlavourSelected)
+    {
+      savedNumberOfFlavourSelected = HowManyFlavoursSelected;
+      CycleFlavourButtons();
+    }
+    
     if(digitalRead(PIN_INPUT_STOP) == HIGH || HowManyFlavoursSelected == 0)
     {
       ResetAllFlavours();
@@ -609,43 +690,58 @@ void SelectMotor(int motorNumber)
     return valuesRead;
   }
 
+void ClearLightEvents()
+{
+//  while(!lightEvents.isEmpty())
+//  {
+//    lightEvents.pop();
+//  }
+}
+
+void RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
+{
+//  LightEvent le;
+//  le.eventType = eventType;
+//  le.lightCode = lightCode;
+//  le.color = color;
+//  le.slice = slice;
+//  le.totalSlices = totalSlices;
+//  lightEvents.push(le);
+}
+
 
 //Looks at the programmed light events list (blink, stop blink, turn on, turn off, color)
 //and update the lightValues + push new values accordingly
 void HandleLights()
 {
-
-  while(!lightEvents.isEmpty())
-  {
-    LigthEvent le;
-    le = lightEvents.pop();
-    switch (le.eventType)
-    {
-      case EVENT_OFF:
-        break;
-      
-      case EVENT_ON_COLOR:
-        break;
-        
-      case EVENT_BLINK:
-        
-        continuousEvents.push(le);
-        break;
-        
-      case EVENT_SLICE_OFF:
-      
-        continuousEvents.push(le);
-        break;
-    }
-    
-    LightEventSliceCount++;
-  }
-  
-  
-  UpdateLights(CurrentLightValues);
-  lightEvents = continuousEvents;
-  continousEvents = tempEvents;
-  
+//  LigthEvent le;
+//  while(!lightEvents.isEmpty())
+//  {
+//
+//    le = lightEvents.pop();
+//    if(le.eventType == EVENT_OFF)
+//    {
+//    }
+//    else if(le.eventType == EVENT_ON_COLOR:)
+//    {
+//    }
+//    else if(le.eventType == EVENT_BLINK)
+//    {
+//      continuousEvents.push(le);
+//    }
+//    else if(le.eventType == EVENT_SLICE_OFF)
+//    {
+//      continuousEvents.push(le);
+//    }
+//
+//    LightEventSliceCount++;
+//  }
+//  
+//  
+//  UpdateLights(CurrentLightValues);
+//  lightEvents = continuousEvents;
+//  continousEvents = tempEvents;
+//  
 }
 
 //Takes the ligthValue and push it out to the 32-Bit Power register array
