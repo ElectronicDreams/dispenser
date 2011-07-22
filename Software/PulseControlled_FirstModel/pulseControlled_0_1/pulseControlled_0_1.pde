@@ -386,6 +386,12 @@ waitForGo:
   //Turn the start button on to green
   RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);
   
+  //Flash the center stage to indicate the need for a tube
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_BLUE,0,2);
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_BLUE,0,2);
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_BLUE,0,2);
+
+  
   while(digitalRead(PIN_INPUT_START) != HIGH)
   {
     ReadInFlavourButtons();
@@ -438,11 +444,67 @@ void ResetSelectedMotors()
   }
 }
 
+SetLightsInPouringMode()
+{
+    ClearLightEvents();
+    
+  //Blink the start button red
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_START,RGB_RED,0,1);  
+
+  //Blink all the flavour lights in a row
+  for(int i = 0; i < NUMBER_OF_FLAVOURS;i++)
+  {
+      RegisterLightEvent(EVENT_SLICE_OFF,FlavourLightsArray[i],RGB_GREEN,i,NUMBER_OF_FLAVOURS);
+  }
+  
+  //Blink center stage lights yellow
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_YELLOW,0,2);
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_YELLOW,0,2);
+  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_YELLOW,0,2);
+
+}
+
+SetLightsForTubeIsReadyWithTopUp()
+{
+   ClearLightEvents();
+   
+   //Turn off the flavour select lights
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
+  }
+   
+   //Light the center stage on white
+   RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  //Turn the start button on to green
+  RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);  
+}
+SetLightsForTubeIsReady()
+{
+   ClearLightEvents();
+   
+   //Turn off the flavour select lights
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
+  }
+   
+   //Light the center stage on white
+   RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  //Turn the start button on to green
+  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,1);  
+}
+
 
 // Proceed with the pouring sequence until end reached or
 // user interrupted
 void Pour()
 {
+  SetLightsInPouringMode();
   
   DetectAvailableFlavours();
   
@@ -487,6 +549,8 @@ stop_Pouring:
 
 void TopUp()
 {
+  SetLightsForTubeIsReadyWithTopUp();
+  
   unsigned long startTime = millis();
   while(digitalRead(PIN_INPUT_STOP) == LOW && (millis() - startTime < TOPUP_DELAY))
   { 
@@ -504,6 +568,12 @@ void TopUp()
       }
       delay(TOPUP_WAIT_DELAY);
     }
+  }
+  SetLightsForTubeIsReady();
+  
+  //TODO: wait till door opens
+  while(digitalRead(PIN_INPUT_STOP) == LOW)
+  {
   }
 }
 
