@@ -15,7 +15,7 @@ One Stop/Reset button
 
 //// ***** Includes **********
 #include <MsTimer2.h>
-//#include <QueueList.h>
+#include <QueueList.h>
 
 //// **** Pin definitions ****
 
@@ -121,18 +121,21 @@ unsigned long LightEventSliceCount = 0;
                       //when the slice number is matched
 #define EVENT_SLICE_ON 4 //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
                       //when the slice number is matched
-////Structs
-//typedef struct {
-//  byte eventType; //the type of light event (see above EVENT_X byte constant
-//  word lightCode; //the code to identifier the current light (see above LIGHT_X_Y word constant)
-//  byte color; //a color code (see above RGB_X code)
-//  byte slice; //the slice value for this light
-//  byte totalSlices;// Modulo value to determine slice. Translates to "slice x oout of totalSlice".
-//}  LightEvent;
-//
-//QueueList <LightEvent> lightEvents;
-//QueueList <LightEvent> continuousEvents;
-//QueueList <LightEvent> tempEvents;
+
+QueueList<byte> q_eventType;
+QueueList<word> q_lightCode;
+QueueList<byte> q_color;
+QueueList<byte> q_slice;
+QueueList<byte> q_totalSlices;
+
+QueueList<byte> q_t_eventType;
+QueueList<word> q_t_lightCode;
+QueueList<byte> q_t_color;
+QueueList<byte> q_t_slice;
+QueueList<byte> q_t_totalSlices;
+
+
+
 
 void setup() {
   Serial.begin(9600);
@@ -444,7 +447,7 @@ void ResetSelectedMotors()
   }
 }
 
-SetLightsInPouringMode()
+void SetLightsInPouringMode()
 {
     ClearLightEvents();
     
@@ -464,7 +467,7 @@ SetLightsInPouringMode()
 
 }
 
-SetLightsForTubeIsReadyWithTopUp()
+void SetLightsForTubeIsReadyWithTopUp()
 {
    ClearLightEvents();
    
@@ -481,7 +484,7 @@ SetLightsForTubeIsReadyWithTopUp()
   //Turn the start button on to green
   RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);  
 }
-SetLightsForTubeIsReady()
+void SetLightsForTubeIsReady()
 {
    ClearLightEvents();
    
@@ -762,21 +765,29 @@ void SelectMotor(int motorNumber)
 
 void ClearLightEvents()
 {
-//  while(!lightEvents.isEmpty())
-//  {
-//    lightEvents.pop();
-//  }
+  MsTimer2::stop();
+  while(!q_eventType.isEmpty())
+  {
+    q_eventType.pop();
+    q_lightCode.pop();
+    q_color.pop();
+    q_slice.pop();
+    q_totalSlices.pop();
+  }
+  MsTimer2::start();
 }
 
 void RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
 {
-//  LightEvent le;
-//  le.eventType = eventType;
-//  le.lightCode = lightCode;
-//  le.color = color;
-//  le.slice = slice;
-//  le.totalSlices = totalSlices;
-//  lightEvents.push(le);
+  MsTimer2::stop();
+  
+  q_eventType.push(eventType);
+  q_lightCode.push(lightCode);
+  q_color.push(color);
+  q_slice.push(slice);
+  q_totalSlices.push(totalSlices);
+  
+  MsTimer2::start();
 }
 
 
@@ -784,35 +795,54 @@ void RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, b
 //and update the lightValues + push new values accordingly
 void HandleLights()
 {
-//  LigthEvent le;
-//  while(!lightEvents.isEmpty())
-//  {
-//
-//    le = lightEvents.pop();
-//    if(le.eventType == EVENT_OFF)
-//    {
-//    }
-//    else if(le.eventType == EVENT_ON_COLOR:)
-//    {
-//    }
-//    else if(le.eventType == EVENT_BLINK)
-//    {
-//      continuousEvents.push(le);
-//    }
-//    else if(le.eventType == EVENT_SLICE_OFF)
-//    {
-//      continuousEvents.push(le);
-//    }
-//
-//    LightEventSliceCount++;
-//  }
-//  
-//  
-//  UpdateLights(CurrentLightValues);
-//  lightEvents = continuousEvents;
-//  continousEvents = tempEvents;
-//  
+
+  byte eventType;
+  word lightCode;
+  byte color;
+  byte slice;
+  byte totalSlices;
+  
+  while(!q_eventType.isEmpty())
+  {
+    eventType = q_eventType.pop();
+    lightCode = q_lightCode.pop();
+    color = q_color.pop();
+    slice = q_slice.pop();
+    totalSlices = q_totalSlices.pop();    
+    
+    switch (eventType)
+    {
+      case EVENT_OFF:
+        break;
+        
+      case EVENT_ON_COLOR:
+        break;
+       
+      case EVENT_BLINK:
+        break;
+        
+      case EVENT_SLICE_ON:
+        break;
+        
+      case EVENT_SLICE_OFF:
+        break;
+    }  
+  }
+  UpdateLights(CurrentLightValues);
+  
+  //put the recuring events back into the light events queues (re-queue)
+  while(!q_t_eventType.isEmpty())
+  {
+    q_eventType.push(q_t_eventType.pop());
+    q_lightCode.push(q_t_lightCode.pop());
+    q_color.push(q_t_color.pop());
+    q_slice.push(q_t_slice.pop());
+    q_totalSlices.push(q_t_totalSlices.pop());
+  }    
+  
 }
+
+
 
 //Takes the ligthValue and push it out to the 32-Bit Power register array
 void UpdateLights(unsigned long lightValues)
