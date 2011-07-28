@@ -105,9 +105,9 @@ byte RGB_OFF = B000;
 byte RGB_RED = B100;
 byte RGB_GREEN = B010;
 byte RGB_BLUE = B001;
-byte RGB_YELLOW = B110;
-byte RGB_CYAN = B011;
-byte RGB_MAGENTA = B101;
+byte RGB_YELLOW = B101;
+byte RGB_CYAN = B110;
+byte RGB_MAGENTA = B011;
 byte W_ON = B1;
 byte W_OFF = B0;
 
