@@ -108,6 +108,8 @@ byte RGB_BLUE = B001;
 byte RGB_YELLOW = B110;
 byte RGB_CYAN = B011;
 byte RGB_MAGENTA = B101;
+byte W_ON = B1;
+byte W_OFF = B0;
 
 unsigned long LIGHT_ALL_ON = 4294967295;
 unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
@@ -198,8 +200,8 @@ void loop() {
 void SetLightsInitialState()
 {
   //Turn on top and bottom rib
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,1,0,0); 
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,1,0,0);
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,W_ON,0,0); 
+  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,W_ON,0,0);
   
   //Turn off center stage
   RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS1,0,0,0); 
@@ -790,6 +792,18 @@ void RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, b
   MsTimer2::start();
 }
 
+void RegisterTempLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
+{
+  MsTimer2::stop();
+  
+  q_t_eventType.push(eventType);
+  q_t_lightCode.push(lightCode);
+  q_t_color.push(color);
+  q_t_slice.push(slice);
+  q_t_totalSlices.push(totalSlices);
+  
+  MsTimer2::start();
+}
 
 //Looks at the programmed light events list (blink, stop blink, turn on, turn off, color)
 //and update the lightValues + push new values accordingly
@@ -801,6 +815,7 @@ void HandleLights()
   byte color;
   byte slice;
   byte totalSlices;
+  LightEventSliceCount++;
   
   while(!q_eventType.isEmpty())
   {
@@ -808,23 +823,55 @@ void HandleLights()
     lightCode = q_lightCode.pop();
     color = q_color.pop();
     slice = q_slice.pop();
-    totalSlices = q_totalSlices.pop();    
+    totalSlices = q_totalSlices.pop();  
     
     switch (eventType)
     {
       case EVENT_OFF:
+        CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
         break;
         
       case EVENT_ON_COLOR:
+        CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);        
         break;
        
       case EVENT_BLINK:
+        //figure out last state
+        if(CurrentLightValues & lightCode > 0)
+        {
+          //light was on, turn it off
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
+        }
+        else
+        {
+          //light was off, turn it on
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);                  
+        }
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);
         break;
         
       case EVENT_SLICE_ON:
+        if(LightEventSliceCount % totalSlices == slice)
+        {
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color); 
+        }
+        else
+        {
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
+        }
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);
         break;
         
       case EVENT_SLICE_OFF:
+        if(LightEventSliceCount % totalSlices == slice)
+        {
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF); 
+        }
+        else
+        {
+          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);
+        }
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);      
         break;
     }  
   }
@@ -843,6 +890,26 @@ void HandleLights()
 }
 
 
+word ShiftLightColorIn(word lightCode,byte color)
+{
+  //Find the bit positionb
+  int bitPos = 0;
+  while(lightCode & 1 != 1)
+  {
+    lightCode = lightCode >> 1;
+    bitPos++;
+  }
+ 
+   
+  word finalColorBits = lightCode & color;
+  
+  //Shift back
+  finalColorBits = finalColorBits << bitPos;
+  
+  return finalColorBits; 
+  
+  
+}
 
 //Takes the ligthValue and push it out to the 32-Bit Power register array
 void UpdateLights(unsigned long lightValues)
