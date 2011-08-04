@@ -13,27 +13,30 @@
 	byte Jag_Lights::t_RGB_OFF;
 	
 	QueueList<byte> Jag_Lights::q_eventType;
-	QueueList<word> Jag_Lights::q_lightCode;
+	QueueList<unsigned long> Jag_Lights::q_lightCode;
 	QueueList<byte> Jag_Lights::q_color;
 	QueueList<byte> Jag_Lights::q_slice;
 	QueueList<byte> Jag_Lights::q_totalSlices;
 
 	QueueList<byte> Jag_Lights::q_t_eventType;
-	QueueList<word> Jag_Lights::q_t_lightCode;
+	QueueList<unsigned long> Jag_Lights::q_t_lightCode;
 	QueueList<byte> Jag_Lights::q_t_color;
 	QueueList<byte> Jag_Lights::q_t_slice;
 	QueueList<byte> Jag_Lights::q_t_totalSlices;	
 
-void Jag_Lights::SetupLights(word initialValue, byte pin_LIGHTS_SCLK, byte pin_LIGHTS_CLK, byte pin_LIGHTS_SERIAL)
+void Jag_Lights::SetupLights(unsigned long initialValue, byte pin_LIGHTS_SCLK, byte pin_LIGHTS_CLK, byte pin_LIGHTS_SERIAL)
 {
   t_RGB_OFF = B000;
+  t_PIN_LIGHTS_SCLK = pin_LIGHTS_SCLK;
+  t_PIN_LIGHTS_CLK = pin_LIGHTS_CLK;
+  t_PIN_LIGHTS_SERIAL = pin_LIGHTS_SERIAL;
   LightEventSliceCount = 0;
   CurrentLightValues = initialValue;
   MsTimer2::set(250, Jag_Lights::HandleLights); 
   MsTimer2::start();
 }
 
-void Jag_Lights::RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
+void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices)
 {
   MsTimer2::stop();
   
@@ -47,7 +50,7 @@ void Jag_Lights::RegisterLightEvent(byte eventType, word lightCode,byte color, b
 }
 
 
-void Jag_Lights::RegisterTempLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
+void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices)
 {
   MsTimer2::stop();
   
@@ -75,21 +78,44 @@ void Jag_Lights::ClearLightEvents()
 }
 
 
-word Jag_Lights::ShiftLightColorIn(word lightCode,byte color)
+unsigned long Jag_Lights::ShiftLightColorIn(unsigned long lightCode,byte color)
 {
-  //Find the bit positionb
+  Serial.println("In ShiftLightColorIn");
+  Serial.print("lightCode: ");
+  Serial.print(lightCode,BIN);
+  Serial.println();
+
+  //Find the bit position
   int bitPos = 0;
-  while(lightCode & 1 != 1)
+  while((lightCode & 1UL) == 0UL)
   {
-    lightCode = lightCode >> 1;
-    bitPos++;
+	Serial.println("Shifted by 1");
+    lightCode = lightCode >> 1UL;
+    bitPos += 1;
   }
  
-   
-  word finalColorBits = lightCode & color;
+  Serial.print("bitpos: ");
+  Serial.print(bitPos,DEC);
+  Serial.println();
+  
+  Serial.print("color: ");
+  Serial.print(color,BIN);
+  Serial.println();
+
+  
+  unsigned long finalColorBits = lightCode & (unsigned long)color;
+  Serial.print("processed lightcode: ");
+  Serial.print(finalColorBits,BIN);
+  Serial.println();
+
+  
   
   //Shift back
   finalColorBits = finalColorBits << bitPos;
+  
+  Serial.print("final lightcode: ");
+  Serial.print(finalColorBits,BIN);
+  Serial.println(); 
   
   return finalColorBits; 
   
@@ -99,13 +125,27 @@ word Jag_Lights::ShiftLightColorIn(word lightCode,byte color)
 //Takes the ligthValue and push it out to the 32-Bit Power register array
 void Jag_Lights::UpdateLights(unsigned long lightValues)
 {
+
+  Serial.print("SCLK: ");
+  Serial.print(t_PIN_LIGHTS_SCLK);
+  Serial.println();
+ 
+  Serial.print("CLK: ");
+  Serial.print(t_PIN_LIGHTS_CLK);
+  Serial.println();
+
+  Serial.print("SERIAL: ");
+  Serial.print(t_PIN_LIGHTS_SERIAL);
+  Serial.println();
+  
+
   digitalWrite(t_PIN_LIGHTS_SCLK, LOW);
   digitalWrite(t_PIN_LIGHTS_CLK, LOW);
   
   shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues);
-  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 8);
-  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 16);
-  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 24);
+  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 8UL);
+  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 16UL);
+  shiftOut(t_PIN_LIGHTS_SERIAL, t_PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 24UL);
   
   digitalWrite(t_PIN_LIGHTS_CLK, HIGH);  
   delay(1);
@@ -117,9 +157,10 @@ void Jag_Lights::UpdateLights(unsigned long lightValues)
 //and update the lightValues + push new values accordingly
 void Jag_Lights::HandleLights()
 {
-
+  Serial.println("In HandleLights");
+  Serial.println(CurrentLightValues,BIN);
   byte eventType;
-  word lightCode;
+  unsigned long lightCode;
   byte color;
   byte slice;
   byte totalSlices;
@@ -133,6 +174,24 @@ void Jag_Lights::HandleLights()
     slice = q_slice.pop();
     totalSlices = q_totalSlices.pop();  
     
+	Serial.println("Event registered:");
+	Serial.print("type: ");
+	Serial.print(eventType,DEC);
+	Serial.println();
+	Serial.print("lightCode: ");
+	Serial.print(lightCode,BIN);
+	Serial.println();
+	Serial.print("color: ");
+	Serial.print(color,BIN);
+	Serial.println();
+	Serial.print("slice: ");
+	Serial.print(slice);
+	Serial.println();
+	Serial.print("totalSlices: ");
+	Serial.print(totalSlices);
+	Serial.println();
+
+	
     switch (eventType)
     {
       case EVENT_OFF:
@@ -193,6 +252,10 @@ void Jag_Lights::HandleLights()
     q_slice.push(q_t_slice.pop());
     q_color.push(q_t_color.pop());
     q_totalSlices.push(q_t_totalSlices.pop());
-  }    
+  } 
+
+  Serial.print("New value: ");
+  Serial.print(CurrentLightValues,BIN);
+  Serial.println();
   
 }

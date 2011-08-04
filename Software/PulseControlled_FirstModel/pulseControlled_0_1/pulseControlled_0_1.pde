@@ -126,6 +126,10 @@ void setup() {
   pinMode(PIN_MOTOR_EN, OUTPUT);
   pinMode(PIN_MOTOR_DIR, OUTPUT);
   pinMode(PIN_MOTOR_PULSE, OUTPUT);
+  
+  pinMode(PIN_LIGHTS_SCLK, OUTPUT);
+  pinMode(PIN_LIGHTS_CLK, OUTPUT);
+  pinMode(PIN_LIGHTS_SERIAL, OUTPUT);
 
   pinMode(PIN_ESTOP_READ, INPUT);
   pinMode(PIN_ESTOP_LOAD, OUTPUT);
