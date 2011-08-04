@@ -1,3 +1,8 @@
+#include <MsTimer2.h>
+#include <QueueList.h>
+#include <jag_lights.h>
+
+
 /*
 Initial program to control the LipLabz balm machine.
 
@@ -13,9 +18,6 @@ One Stop/Reset button
 
 */
 
-//// ***** Includes **********
-#include <MsTimer2.h>
-#include <QueueList.h>
 
 //// **** Pin definitions ****
 
@@ -29,7 +31,7 @@ One Stop/Reset button
 
 #define PIN_INPUT_START 6
 #define PIN_INPUT_STOP 5
-
+  
 #define PIN_ESTOP_READ 10
 #define PIN_ESTOP_LOAD 3
 #define PIN_ESTOP_CLOCK 4
@@ -113,31 +115,6 @@ byte W_OFF = B0;
 
 unsigned long LIGHT_ALL_ON = 4294967295;
 unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
-unsigned long LightEventSliceCount = 0;
-
-
-#define EVENT_OFF 0 //ONE-TIME Turns specified light OFF
-#define EVENT_ON_COLOR 1 //ONE-TIME Turns specified light ON to the selected color
-#define EVENT_BLINK 2 //CONTINUOUS Toggles the selected light between OFF and the color selected on each cycle
-#define EVENT_SLICE_OFF 3 //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
-                      //when the slice number is matched
-#define EVENT_SLICE_ON 4 //CONTINUOUS Toggles Alternates between the light being the selected color and it turning off for one cycle
-                      //when the slice number is matched
-
-QueueList<byte> q_eventType;
-QueueList<word> q_lightCode;
-QueueList<byte> q_color;
-QueueList<byte> q_slice;
-QueueList<byte> q_totalSlices;
-
-QueueList<byte> q_t_eventType;
-QueueList<word> q_t_lightCode;
-QueueList<byte> q_t_color;
-QueueList<byte> q_t_slice;
-QueueList<byte> q_t_totalSlices;
-
-
-
 
 void setup() {
   Serial.begin(9600);
@@ -176,11 +153,10 @@ void setup() {
   //EStop parallel in shift register, load set to HIGH (turned LOW to LOAD)
   digitalWrite(PIN_ESTOP_LOAD, HIGH);
   
+  Jag_Lights::SetupLights(CurrentLightValues,PIN_LIGHTS_SCLK, PIN_LIGHTS_CLK, PIN_LIGHTS_SERIAL);
   InitializeSequence();
   
-  //Setup the light timer interface
-  MsTimer2::set(250, HandleLights); 
-  MsTimer2::start();
+  
 }
 
 void loop() {
@@ -200,22 +176,22 @@ void loop() {
 void SetLightsInitialState()
 {
   //Turn on top and bottom rib
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,W_ON,0,0); 
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,W_ON,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,W_ON,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,W_ON,0,0);
   
   //Turn off center stage
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS1,0,0,0); 
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS2,0,0,0); 
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS3,0,0,0);   
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS1,0,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS2,0,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS3,0,0,0);   
   
   //Turn off start button
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
   
   //Turn available colors green solid
   //and unavailable ones off
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    RegisterLightEvent(IsFlavourAvailable(i),FlavourLightsArray[i],RGB_GREEN,0,0); 
+    Jag_Lights::RegisterLightEvent(IsFlavourAvailable(i),FlavourLightsArray[i],RGB_GREEN,0,0); 
   }
 
 }
@@ -265,32 +241,34 @@ boolean IsBottomEStopTriggered(int flavourIndex)
 
 void SelfTest_Lights()
 {
-  //Turn all lights ON for 2 seconds, then flash each of them
-  //off every 500 ms
-  CurrentLightValues = 4294967295;
-  UpdateLights(CurrentLightValues);
-  delay(2000);
+  //Need to convert to using library
   
-  //Build a light sequence array
-  unsigned long LightSequence[12];
-  LightSequence[0] = LIGHT_ALL_ON & ~LIGHT_WHITE_TOPRIB;
-  LightSequence[1] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR1;
-  LightSequence[2] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR2;  
-  LightSequence[3] = LIGHT_ALL_ON & ~LIGHT_RGB_START;  
-  LightSequence[4] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR3; 
-  LightSequence[5] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR4; 
-  LightSequence[6] = LIGHT_ALL_ON & ~LIGHT_RGB_CS1; 
-  LightSequence[7] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR5; 
-  LightSequence[8] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR6; 
-  LightSequence[9] = LIGHT_ALL_ON & ~LIGHT_RGB_CS2;
-  LightSequence[10] = LIGHT_ALL_ON & ~LIGHT_RGB_CS3;  
-  LightSequence[11] = LIGHT_ALL_ON & ~LIGHT_WHITE_BOTTOMRIB;
-  
-  for(int i = 0; i < 12 ; i++)
-  {
-    UpdateLights(LightSequence[i]);
-    delay(500);
-  }
+//  //Turn all lights ON for 2 seconds, then flash each of them
+//  //off every 500 ms
+//  CurrentLightValues = 4294967295;
+//  UpdateLights(CurrentLightValues);
+//  delay(2000);
+//  
+//  //Build a light sequence array
+//  unsigned long LightSequence[12];
+//  LightSequence[0] = LIGHT_ALL_ON & ~LIGHT_WHITE_TOPRIB;
+//  LightSequence[1] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR1;
+//  LightSequence[2] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR2;  
+//  LightSequence[3] = LIGHT_ALL_ON & ~LIGHT_RGB_START;  
+//  LightSequence[4] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR3; 
+//  LightSequence[5] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR4; 
+//  LightSequence[6] = LIGHT_ALL_ON & ~LIGHT_RGB_CS1; 
+//  LightSequence[7] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR5; 
+//  LightSequence[8] = LIGHT_ALL_ON & ~LIGHT_RGB_FLAVOUR6; 
+//  LightSequence[9] = LIGHT_ALL_ON & ~LIGHT_RGB_CS2;
+//  LightSequence[10] = LIGHT_ALL_ON & ~LIGHT_RGB_CS3;  
+//  LightSequence[11] = LIGHT_ALL_ON & ~LIGHT_WHITE_BOTTOMRIB;
+//  
+//  for(int i = 0; i < 12 ; i++)
+//  {
+//    UpdateLights(LightSequence[i]);
+//    delay(500);
+//  }
   
 }
 
@@ -334,7 +312,7 @@ void DumpSelectedFlavour()
 //and the selected flavour
 void CycleFlavourButtons()
 {
-  ClearLightEvents();
+  Jag_Lights::ClearLightEvents();
   
   int slice = 0;
   
@@ -342,11 +320,11 @@ void CycleFlavourButtons()
   {
     if(SelectedFlavours[i] && IsFlavourAvailable(i))
     {
-      RegisterLightEvent(EVENT_ON_COLOR,FlavourLightsArray[i],RGB_GREEN,0,0);
+      Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,FlavourLightsArray[i],RGB_GREEN,0,0);
     }
     else if(!SelectedFlavours[i] & IsFlavourAvailable(i))
     {
-      RegisterLightEvent(EVENT_SLICE_ON,FlavourLightsArray[i],RGB_BLUE,slice,HowManyAvailableFlavours + HowManyFlavoursSelected);
+     Jag_Lights:: RegisterLightEvent(EVENT_SLICE_ON,FlavourLightsArray[i],RGB_BLUE,slice,HowManyAvailableFlavours + HowManyFlavoursSelected);
       slice++;
     }
   }
@@ -360,8 +338,8 @@ void WaitForUserInputs()
   
 waitForFlavourOnly:
   //Turn the start button off
-  ClearLightEvents();
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+  Jag_Lights::ClearLightEvents();
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
 
   //First, wait for at least one flavour to be selected
   int savedNumberOfFlavourSelected = HowManyFlavoursSelected;
@@ -389,12 +367,12 @@ waitForGo:
   //But also check the "GO" button or reset
   
   //Turn the start button on to green
-  RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);
   
   //Flash the center stage to indicate the need for a tube
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_BLUE,0,2);
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_BLUE,0,2);
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_BLUE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_BLUE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_BLUE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_BLUE,0,2);
 
   
   while(digitalRead(PIN_INPUT_START) != HIGH)
@@ -451,57 +429,57 @@ void ResetSelectedMotors()
 
 void SetLightsInPouringMode()
 {
-    ClearLightEvents();
+    Jag_Lights::ClearLightEvents();
     
   //Blink the start button red
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_START,RGB_RED,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_START,RGB_RED,0,1);  
 
   //Blink all the flavour lights in a row
   for(int i = 0; i < NUMBER_OF_FLAVOURS;i++)
   {
-      RegisterLightEvent(EVENT_SLICE_OFF,FlavourLightsArray[i],RGB_GREEN,i,NUMBER_OF_FLAVOURS);
+      Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,FlavourLightsArray[i],RGB_GREEN,i,NUMBER_OF_FLAVOURS);
   }
   
   //Blink center stage lights yellow
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_YELLOW,0,2);
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_YELLOW,0,2);
-  RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_YELLOW,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_YELLOW,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_YELLOW,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_YELLOW,0,2);
 
 }
 
 void SetLightsForTubeIsReadyWithTopUp()
 {
-   ClearLightEvents();
+   Jag_Lights::ClearLightEvents();
    
    //Turn off the flavour select lights
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
+    Jag_Lights::RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
   }
    
    //Light the center stage on white
-   RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
   //Turn the start button on to green
-  RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);  
 }
 void SetLightsForTubeIsReady()
 {
-   ClearLightEvents();
+   Jag_Lights::ClearLightEvents();
    
    //Turn off the flavour select lights
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
-    RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
+    Jag_Lights::RegisterLightEvent(EVENT_OFF,FlavourLightsArray[i],0,0,0); 
   }
    
    //Light the center stage on white
-   RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
-  RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
   //Turn the start button on to green
-  RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,1);  
 }
 
 
@@ -765,165 +743,3 @@ void SelectMotor(int motorNumber)
     return valuesRead;
   }
 
-void ClearLightEvents()
-{
-  MsTimer2::stop();
-  while(!q_eventType.isEmpty())
-  {
-    q_eventType.pop();
-    q_lightCode.pop();
-    q_color.pop();
-    q_slice.pop();
-    q_totalSlices.pop();
-  }
-  MsTimer2::start();
-}
-
-void RegisterLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
-{
-  MsTimer2::stop();
-  
-  q_eventType.push(eventType);
-  q_lightCode.push(lightCode);
-  q_color.push(color);
-  q_slice.push(slice);
-  q_totalSlices.push(totalSlices);
-  
-  MsTimer2::start();
-}
-
-void RegisterTempLightEvent(byte eventType, word lightCode,byte color, byte slice, byte totalSlices)
-{
-  MsTimer2::stop();
-  
-  q_t_eventType.push(eventType);
-  q_t_lightCode.push(lightCode);
-  q_t_color.push(color);
-  q_t_slice.push(slice);
-  q_t_totalSlices.push(totalSlices);
-  
-  MsTimer2::start();
-}
-
-//Looks at the programmed light events list (blink, stop blink, turn on, turn off, color)
-//and update the lightValues + push new values accordingly
-void HandleLights()
-{
-
-  byte eventType;
-  word lightCode;
-  byte color;
-  byte slice;
-  byte totalSlices;
-  LightEventSliceCount++;
-  
-  while(!q_eventType.isEmpty())
-  {
-    eventType = q_eventType.pop();
-    lightCode = q_lightCode.pop();
-    color = q_color.pop();
-    slice = q_slice.pop();
-    totalSlices = q_totalSlices.pop();  
-    
-    switch (eventType)
-    {
-      case EVENT_OFF:
-        CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
-        break;
-        
-      case EVENT_ON_COLOR:
-        CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);        
-        break;
-       
-      case EVENT_BLINK:
-        //figure out last state
-        if(CurrentLightValues & lightCode > 0)
-        {
-          //light was on, turn it off
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
-        }
-        else
-        {
-          //light was off, turn it on
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);                  
-        }
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);
-        break;
-        
-      case EVENT_SLICE_ON:
-        if(LightEventSliceCount % totalSlices == slice)
-        {
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color); 
-        }
-        else
-        {
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF);
-        }
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);
-        break;
-        
-      case EVENT_SLICE_OFF:
-        if(LightEventSliceCount % totalSlices == slice)
-        {
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,RGB_OFF); 
-        }
-        else
-        {
-          CurrentLightValues = CurrentLightValues & ShiftLightColorIn(lightCode,color);
-        }
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);      
-        break;
-    }  
-  }
-  UpdateLights(CurrentLightValues);
-  
-  //put the recuring events back into the light events queues (re-queue)
-  while(!q_t_eventType.isEmpty())
-  {
-    q_eventType.push(q_t_eventType.pop());
-    q_lightCode.push(q_t_lightCode.pop());
-    q_color.push(q_t_color.pop());
-    q_slice.push(q_t_slice.pop());
-    q_totalSlices.push(q_t_totalSlices.pop());
-  }    
-  
-}
-
-
-word ShiftLightColorIn(word lightCode,byte color)
-{
-  //Find the bit positionb
-  int bitPos = 0;
-  while(lightCode & 1 != 1)
-  {
-    lightCode = lightCode >> 1;
-    bitPos++;
-  }
- 
-   
-  word finalColorBits = lightCode & color;
-  
-  //Shift back
-  finalColorBits = finalColorBits << bitPos;
-  
-  return finalColorBits; 
-  
-  
-}
-
-//Takes the ligthValue and push it out to the 32-Bit Power register array
-void UpdateLights(unsigned long lightValues)
-{
-  digitalWrite(PIN_LIGHTS_SCLK, LOW);
-  digitalWrite(PIN_LIGHTS_CLK, LOW);
-  
-  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues);
-  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 8);
-  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 16);
-  shiftOut(PIN_LIGHTS_SERIAL, PIN_LIGHTS_SCLK, LSBFIRST, lightValues >> 24);
-  
-  digitalWrite(PIN_LIGHTS_CLK, HIGH);  
-  delay(1);
-  digitalWrite(PIN_LIGHTS_CLK, LOW);  
-  
-}
