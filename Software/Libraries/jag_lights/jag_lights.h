@@ -19,9 +19,9 @@ namespace Jag_Lights {
 	extern unsigned long CurrentLightValues; 
 	extern unsigned long LightEventSliceCount;
 	
-	extern byte t_PIN_LIGHTS_SCLK;
-	extern byte t_PIN_LIGHTS_CLK;
-	extern byte t_PIN_LIGHTS_SERIAL;
+	extern int t_PIN_LIGHTS_SCLK;
+	extern int t_PIN_LIGHTS_CLK;
+	extern int t_PIN_LIGHTS_SERIAL;
 	extern byte t_RGB_OFF;
 	
 	extern QueueList<byte> q_eventType;
@@ -44,7 +44,7 @@ namespace Jag_Lights {
 	
 	
 //public:
-	void SetupLights(unsigned long initialValue, byte pin_LIGHTS_SCLK, byte pin_LIGHTS_CLK, byte pin_LIGHTS_SERIAL);
+	void SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, int pin_LIGHTS_CLK, int pin_LIGHTS_SERIAL);
 	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices);
 	void ClearLightEvents();
 	void HandleLights();

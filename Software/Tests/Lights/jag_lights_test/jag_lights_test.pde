@@ -27,11 +27,11 @@ unsigned long LIGHT_RGB_CS3 = 3758096384; //  11100000 00000000 00000000 0000000
 byte RGB_WHITE = B111;
 byte RGB_OFF = B000;
 byte RGB_RED = B100;
-byte RGB_GREEN = B010;
-byte RGB_BLUE = B001;
+byte RGB_GREEN = B001;
+byte RGB_BLUE = B010;
 byte RGB_YELLOW = B101;
-byte RGB_CYAN = B110;
-byte RGB_MAGENTA = B011;
+byte RGB_CYAN = B011;
+byte RGB_MAGENTA = B110;
 byte W_ON = B1;
 byte W_OFF = B0;
 
@@ -50,7 +50,7 @@ void setup() {
   Jag_Lights::SetupLights(CurrentLightValues,PIN_LIGHTS_SCLK, PIN_LIGHTS_CLK, PIN_LIGHTS_SERIAL);
 
   Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RGB_CS3, RGB_RED, 0, 0);
+  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RGB_CS3, RGB_GREEN, 0, 3);
   
   Serial.println("Program started");
 }
