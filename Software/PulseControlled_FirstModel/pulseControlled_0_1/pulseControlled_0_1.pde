@@ -54,11 +54,11 @@ One Stop/Reset button
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 3200 //time running motor to a full tube
+#define MAX_STEPS_FILL_TUBE 2000 //time running motor to a full tube
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-#define MOTOR_PREP_STEPS 1000
+#define MOTOR_PREP_STEPS 3000
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MOTOR_TOPUP_STEPS 200
 #define TOPUP_WAIT_DELAY 5000
