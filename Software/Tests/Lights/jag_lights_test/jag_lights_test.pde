@@ -50,7 +50,7 @@ void setup() {
   Jag_Lights::SetupLights(CurrentLightValues,PIN_LIGHTS_SCLK, PIN_LIGHTS_CLK, PIN_LIGHTS_SERIAL);
 
   Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RGB_CS3, RGB_GREEN, 0, 3);
+
   
   Serial.println("Program started");
 }
@@ -58,7 +58,13 @@ void setup() {
 void loop() {
   // put your main code here, to run repeatedly: 
   
-  
+    Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RGB_CS3, RGB_GREEN, 0, 3);
+    
+    delay(10000);
+    Jag_Lights::ClearLightEvents();
+        
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_CS3, RGB_GREEN, 0, 3);
+    delay(10000);
   
 }
 
