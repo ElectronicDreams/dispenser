@@ -26,17 +26,17 @@
 
 void Jag_Lights::SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, int pin_LIGHTS_CLK, int pin_LIGHTS_SERIAL)
 {  
-  Serial.print("SCLK: ");
-  Serial.print(pin_LIGHTS_SCLK);
-  Serial.println();
+  // Serial.print("SCLK: ");
+  // Serial.print(pin_LIGHTS_SCLK);
+  // Serial.println();
  
-  Serial.print("CLK: ");
-  Serial.print(pin_LIGHTS_CLK);
-  Serial.println();
+  // Serial.print("CLK: ");
+  // Serial.print(pin_LIGHTS_CLK);
+  // Serial.println();
 
-  Serial.print("SERIAL: ");
-  Serial.print(pin_LIGHTS_SERIAL);
-  Serial.println();
+  // Serial.print("SERIAL: ");
+  // Serial.print(pin_LIGHTS_SERIAL);
+  // Serial.println();
 
 	
   t_RGB_OFF = B000;
@@ -45,7 +45,7 @@ void Jag_Lights::SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, in
   t_PIN_LIGHTS_SERIAL = pin_LIGHTS_SERIAL;
   LightEventSliceCount = 0;
   CurrentLightValues = initialValue;
-  MsTimer2::set(10, Jag_Lights::HandleLights); 
+  MsTimer2::set(250, Jag_Lights::HandleLights); 
   MsTimer2::start();
 }
 
@@ -79,6 +79,8 @@ void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,
 void Jag_Lights::ClearLightEvents()
 {
   MsTimer2::stop();
+  
+  //Serial.println("In ClearLightEvents");
   while(!q_eventType.isEmpty())
   {
     q_eventType.pop();
@@ -93,47 +95,47 @@ void Jag_Lights::ClearLightEvents()
 
 unsigned long Jag_Lights::ShiftLightColorIn(unsigned long lightCode,byte color)
 {
-  Serial.println("In ShiftLightColorIn");
-  Serial.print("lightCode: ");
-  Serial.print(lightCode,BIN);
-  Serial.println();
+  // Serial.println("In ShiftLightColorIn");
+  // Serial.print("lightCode: ");
+  // Serial.print(lightCode,BIN);
+  // Serial.println();
 
   unsigned long initialLightCode = lightCode;
   //Find the bit position
   int bitPos = 0;
   while((unsigned long)(lightCode & 1UL) == 0UL)
   {
-	Serial.println("Shifted by 1");
+	//Serial.println("Shifted by 1");
     lightCode = lightCode >> 1;
     bitPos += 1;
   }
  
-  Serial.print("lightcode: ");
-  Serial.print(lightCode,BIN);
-  Serial.println();
+  // Serial.print("lightcode: ");
+  // Serial.print(lightCode,BIN);
+  // Serial.println();
 
-  Serial.print("bitpos: ");
-  Serial.print(bitPos,DEC);
-  Serial.println();
+  // Serial.print("bitpos: ");
+  // Serial.print(bitPos,DEC);
+  // Serial.println();
   
-  Serial.print("color: ");
-  Serial.print(color,BIN);
-  Serial.println();
+  // Serial.print("color: ");
+  // Serial.print(color,BIN);
+  // Serial.println();
 
   
   unsigned long finalColorBits = lightCode & (unsigned long)color;
-  Serial.print("processed lightcode: ");
-  Serial.print(finalColorBits,BIN);
-  Serial.println();
+  // Serial.print("processed lightcode: ");
+  // Serial.print(finalColorBits,BIN);
+  // Serial.println();
 
   
   
   //Shift back
   finalColorBits = finalColorBits << bitPos;
   
-  Serial.print("final lightcode: ");
-  Serial.print((finalColorBits | ~initialLightCode),BIN);
-  Serial.println(); 
+  // Serial.print("final lightcode: ");
+  // Serial.print((finalColorBits | ~initialLightCode),BIN);
+  // Serial.println(); 
   
   return (finalColorBits | ~initialLightCode); 
   
@@ -144,17 +146,17 @@ unsigned long Jag_Lights::ShiftLightColorIn(unsigned long lightCode,byte color)
 void Jag_Lights::UpdateLights(unsigned long lightValues)
 {
 
-  Serial.print("SCLK: ");
-  Serial.print(t_PIN_LIGHTS_SCLK);
-  Serial.println();
+  // Serial.print("SCLK: ");
+  // Serial.print(t_PIN_LIGHTS_SCLK);
+  // Serial.println();
  
-  Serial.print("CLK: ");
-  Serial.print(t_PIN_LIGHTS_CLK);
-  Serial.println();
+  // Serial.print("CLK: ");
+  // Serial.print(t_PIN_LIGHTS_CLK);
+  // Serial.println();
 
-  Serial.print("SERIAL: ");
-  Serial.print(t_PIN_LIGHTS_SERIAL);
-  Serial.println();
+  // Serial.print("SERIAL: ");
+  // Serial.print(t_PIN_LIGHTS_SERIAL);
+  // Serial.println();
   
 
   digitalWrite(t_PIN_LIGHTS_SCLK, LOW);
@@ -176,8 +178,8 @@ void Jag_Lights::UpdateLights(unsigned long lightValues)
 void Jag_Lights::HandleLights()
 {
   unsigned long timeStart = micros();
-  Serial.println("In HandleLights");
-  Serial.println(CurrentLightValues,BIN);
+  // Serial.println("In HandleLights");
+  // Serial.println(CurrentLightValues,BIN);
   byte eventType;
   unsigned long lightCode;
   byte color;
@@ -185,34 +187,37 @@ void Jag_Lights::HandleLights()
   byte totalSlices;
   LightEventSliceCount++;
   
+  int numOfEvents = 0;
+  
   while(!q_eventType.isEmpty())
   {
+	numOfEvents++;
     eventType = q_eventType.pop();
     lightCode = q_lightCode.pop();
     color = q_color.pop();
     slice = q_slice.pop();
     totalSlices = q_totalSlices.pop();  
     
-	Serial.println("Event registered:");
-	Serial.print("type: ");
-	Serial.print(eventType,DEC);
-	Serial.println();
-	Serial.print("lightCode: ");
-	Serial.print(lightCode,BIN);
-	Serial.println();
-	Serial.print("color: ");
-	Serial.print(color,BIN);
-	Serial.println();
-	Serial.print("slice: ");
-	Serial.print(slice,DEC);
-	Serial.println();
-	Serial.print("totalSlices: ");
-	Serial.print(totalSlices,DEC);
-	Serial.println();
+	// Serial.println("Event registered:");
+	// Serial.print("type: ");
+	// Serial.print(eventType,DEC);
+	// Serial.println();
+	// Serial.print("lightCode: ");
+	// Serial.print(lightCode,BIN);
+	// Serial.println();
+	// Serial.print("color: ");
+	// Serial.print(color,BIN);
+	// Serial.println();
+	// Serial.print("slice: ");
+	// Serial.print(slice,DEC);
+	// Serial.println();
+	// Serial.print("totalSlices: ");
+	// Serial.print(totalSlices,DEC);
+	// Serial.println();
 
-	Serial.print("CurrentLightValues: ");
-	Serial.print(CurrentLightValues,BIN);
-	Serial.println();
+	// Serial.print("CurrentLightValues: ");
+	// Serial.print(CurrentLightValues,BIN);
+	// Serial.println();
 
     switch (eventType)
     {
@@ -228,13 +233,13 @@ void Jag_Lights::HandleLights()
         //figure out last state
         if((unsigned long)(CurrentLightValues & lightCode) > 0UL) //That light is NOT off
         {
-		  Serial.println("Blink OFF");
+		  //Serial.println("Blink OFF");
           //light was on, turn it off
           CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
         }
         else
         {
-		  Serial.println("Blink ON");
+		  //Serial.println("Blink ON");
 		  
           //light was off, turn it on
           CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);                  
@@ -269,21 +274,31 @@ void Jag_Lights::HandleLights()
   }
   UpdateLights(CurrentLightValues);
   
+  // Serial.print("Num of events in queue: ");
+  // Serial.print(numOfEvents);
+  // Serial.println();
+  
+  numOfEvents = 0;
+  
   //put the recuring events back into the light events queues (re-queue)
   while(!q_t_eventType.isEmpty())
   {
+	numOfEvents++;
     q_eventType.push(q_t_eventType.pop());
     q_lightCode.push(q_t_lightCode.pop());
     q_slice.push(q_t_slice.pop());
     q_color.push(q_t_color.pop());
     q_totalSlices.push(q_t_totalSlices.pop());
   } 
-
-  Serial.print("New value: ");
-  Serial.print(CurrentLightValues,BIN);
-  Serial.println();
+  // Serial.print("Num of recurring events in queue: ");
+  // Serial.print(numOfEvents);
+  // Serial.println();	
   
-  Serial.print("Total time processing lights: ");
-  Serial.print(micros() - timeStart);
-  Serial.println(" um");
+  // Serial.print("New value: ");
+  // Serial.print(CurrentLightValues,BIN);
+  // Serial.println();
+  
+  // Serial.print("Total time processing lights: ");
+  // Serial.print(micros() - timeStart);
+  // Serial.println(" um");
 } 
