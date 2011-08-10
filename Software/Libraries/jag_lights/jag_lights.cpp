@@ -186,7 +186,7 @@ void Jag_Lights::HandleLights()
   byte slice;
   byte totalSlices;
   LightEventSliceCount++;
-  
+  unsigned long savedLightValue;
   int numOfEvents = 0;
   
   while(!q_eventType.isEmpty())
@@ -273,6 +273,13 @@ void Jag_Lights::HandleLights()
     }  
   }
   UpdateLights(CurrentLightValues);
+  
+  if(CurrentLightValues != savedLightValue)
+  {
+	  Serial.print("New light value: ");
+	  Serial.print(CurrentLightValues,BIN);
+	  Serial.println();	
+  }
   
   // Serial.print("Num of events in queue: ");
   // Serial.print(numOfEvents);

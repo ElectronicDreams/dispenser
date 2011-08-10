@@ -32,6 +32,12 @@ byte RGB_BLUE = B010;
 byte RGB_YELLOW = B101;
 byte RGB_CYAN = B011;
 byte RGB_MAGENTA = B110;
+
+byte RG_WHITE = B11;
+byte RG_YELLOW = B10;
+byte RG_CYAN = B01;
+byte RG_GREEN = B00;
+
 byte W_ON = B1;
 byte W_OFF = B0;
 
@@ -51,44 +57,44 @@ void setup() {
 
   Jag_Lights::ClearLightEvents();
 
-  
+  SetupAllLightsEvents(EVENT_BLINK,RGB_WHITE);
   Serial.println("Program started");
 }
 
 void loop() {
   // put your main code here, to run repeatedly: 
-    Serial.println("Registering light event ON");    
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_SLICE_ON,RGB_GREEN);
-    delay(10000);
-    Jag_Lights::ClearLightEvents();
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_SLICE_OFF,RGB_GREEN);
-    delay(10000);
-    Jag_Lights::ClearLightEvents();
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_BLINK,RGB_BLUE);
-    delay(5000);
-    Jag_Lights::ClearLightEvents();
-        
-    Serial.println("Registering light event off");    
-    TurnAllLightsOff();
-    delay(2000);
+//    Serial.println("Registering light event ON");    
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_SLICE_ON,RGB_GREEN);
+//    delay(10000);
+//    Jag_Lights::ClearLightEvents();
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_SLICE_OFF,RGB_GREEN);
+//    delay(10000);
+//    Jag_Lights::ClearLightEvents();
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_BLINK,RGB_BLUE);
+//    delay(5000);
+//    Jag_Lights::ClearLightEvents();
+//        
+//    Serial.println("Registering light event off");    
+//    TurnAllLightsOff();
+//    delay(2000);
   
 }
 
 void SetupAllLightsEvents(byte eventType,byte color)
 {
-    Jag_Lights::RegisterLightEvent(eventType, LIGHT_RGB_CS3, color, 0, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_CS2, color, 1, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS3, color, 0, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_CS2, color, 1, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_CS1, color, 2, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_START, color, 3, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR6, color, 4, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR5, color, 5, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR4, color, 6, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR3, color, 7, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR2, color, 8, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_FLAVOUR1, color, 9, 10); 
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR6, color, 4, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR5, color, 5, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR4, color, 6, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR3, color, 7, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR2, color, 8, 10);
+    Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_FLAVOUR1, color, 9, 10); 
 }
 
 void TurnAllLightsOff()

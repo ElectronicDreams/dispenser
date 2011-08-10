@@ -110,6 +110,12 @@ byte RGB_BLUE = B010;
 byte RGB_YELLOW = B101;
 byte RGB_CYAN = B011;
 byte RGB_MAGENTA = B110;
+
+byte RG_WHITE = B11;
+byte RG_YELLOW = B10;
+byte RG_CYAN = B01;
+byte RG_GREEN = B00;
+
 byte W_ON = B1;
 byte W_OFF = B0;
 
@@ -738,7 +744,7 @@ void SelectMotor(int motorNumber)
     for(int i = 0; i <=15 ; i++)
     {
       valuesRead = valuesRead >> 1;
-      valuesRead = valuesRead | (digitalRead(PIN_ESTOP_READ) & word(B10000000,B00000000));
+      valuesRead = valuesRead | (digitalRead(PIN_ESTOP_READ) << 15);
       digitalWrite(PIN_ESTOP_CLOCK,LOW);
       delay(10);
       digitalWrite(PIN_ESTOP_CLOCK,HIGH);
