@@ -85,22 +85,24 @@ word ESTOP_T_4 = word(B00001000,B00000000);
 word ESTOP_T_5 = word(B00010000,B00000000);
 word ESTOP_T_6 = word(B00100000,B00000000);
 
-unsigned long LIGHT_WHITE_BOTTOMRIB = 1; //  00000000 00000000 00000000 00000001
-unsigned long LIGHT_WHITE_TOPRIB = 2; //     00000000 00000000 00000000 00000010
+unsigned long LIGHT_RGB_RIB1 = 7; //               00000000 00000000 00000000 00000111
+unsigned long LIGHT_RGB_RIB2 = 56; //              00000000 00000000 00000000 00111000
+unsigned long LIGHT_RGB_RIB3 = 448; //             00000000 00000000 00000001 11000000
+unsigned long LIGHT_RGB_RIB4 = 3584; //            00000000 00000000 00001110 00000000
+unsigned long LIGHT_RGB_RIB5 = 28672; //           00000000 00000000 01110000 00000000
+unsigned long LIGHT_RGB_RIB6 = 229376; //          00000000 00000011 10000000 00000000
 
-unsigned long LIGHT_RGB_FLAVOUR1 = 28; //    00000000 00000000 00000000 00011100
-unsigned long LIGHT_RGB_FLAVOUR2 = 224; //   00000000 00000000 00000000 11100000
-unsigned long LIGHT_RGB_FLAVOUR3 = 1792; //  00000000 00000000 00000111 00000000
-unsigned long LIGHT_RGB_FLAVOUR4 = 14336; // 00000000 00000000 00111000 00000000
-unsigned long LIGHT_RGB_FLAVOUR5 = 114688; //00000000 00000001 11000000 00000000
-unsigned long LIGHT_RGB_FLAVOUR6 = 917504; //00000000 00001110 00000000 00000000
-unsigned long FlavourLightsArray[NUMBER_OF_FLAVOURS] = {LIGHT_RGB_FLAVOUR1, LIGHT_RGB_FLAVOUR2, LIGHT_RGB_FLAVOUR3, LIGHT_RGB_FLAVOUR4, LIGHT_RGB_FLAVOUR5, LIGHT_RGB_FLAVOUR6};
+unsigned long LIGHT_RG_START = 786432; //          00000000 00001100 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR1 = 1048576; //   00000000 00010000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR2 = 2097152; //   00000000 00100000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR3 = 4194304; //   00000000 01000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR4 = 8388608; //   00000000 10000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR5 = 16777216; //  00000001 00000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR6 = 33554432; //  00000010 00000000 00000000 00000000
+unsigned long LIGHT_RGB_CS_TB = 469762048; //      00011100 00000000 00000000 00000000
+unsigned long LIGHT_RGB_CS_CENTER = 3758096384; // 11100000 00000000 00000000 00000000
 
-unsigned long LIGHT_RGB_START = 7340032; // 00000000 01110000 00000000 00000000
-unsigned long LIGHT_RGB_CS1 = 58720256; //00000011 10000000 00000000 00000000
-unsigned long LIGHT_RGB_CS2 = 469762048;//00011100 00000000 00000000 00000000
-
-unsigned long LIGHT_RGB_CS3 = 3758096384; //  11100000 00000000 00000000 00000000
+unsigned long FlavourLightsArray[NUMBER_OF_FLAVOURS] = {LIGHT_WHITE_FLAVOUR1, LIGHT_WHITE_FLAVOUR2, LIGHT_WHITE_FLAVOUR3, LIGHT_WHITE_FLAVOUR4, LIGHT_WHITE_FLAVOUR5, LIGHT_WHITE_FLAVOUR6};
 
 byte RGB_WHITE = B111;
 byte RGB_OFF = B000;
@@ -111,10 +113,11 @@ byte RGB_YELLOW = B101;
 byte RGB_CYAN = B011;
 byte RGB_MAGENTA = B110;
 
-byte RG_WHITE = B11;
-byte RG_YELLOW = B10;
-byte RG_CYAN = B01;
-byte RG_GREEN = B00;
+//Hard wire blue for 4 colours
+byte RG_YELLOW_WHITE = B11;
+byte RG_RED_MAGENTA = B10;
+byte RG_GREEN_CYAN = B01;
+byte RG_OFF_BLUE = B00;
 
 byte W_ON = B1;
 byte W_OFF = B0;
@@ -186,16 +189,19 @@ void loop() {
 void SetLightsInitialState()
 {
   //Turn on top and bottom rib
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_BOTTOMRIB,W_ON,0,0); 
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_WHITE_TOPRIB,W_ON,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB1,RGB_WHITE,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB2,RGB_WHITE,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB3,RGB_WHITE,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB4,RGB_WHITE,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB5,RGB_WHITE,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_RIB6,RGB_WHITE,0,0); 
   
   //Turn off center stage
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS1,0,0,0); 
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS2,0,0,0); 
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS3,0,0,0);   
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS_TB,0,0,0); 
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_CS_CENTER,0,0,0); 
   
   //Turn off start button
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RG_START,0,0,0);
   
   //Turn available colors green solid
   //and unavailable ones off
@@ -349,7 +355,7 @@ void WaitForUserInputs()
 waitForFlavourOnly:
   //Turn the start button off
   Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,0);
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RG_START,0,0,0);
 
   //First, wait for at least one flavour to be selected
   int savedNumberOfFlavourSelected = HowManyFlavoursSelected;
@@ -377,12 +383,11 @@ waitForGo:
   //But also check the "GO" button or reset
   
   //Turn the start button on to green
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RG_START,RG_GREEN_CYAN,0,1);
   
   //Flash the center stage to indicate the need for a tube
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_BLUE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_BLUE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_BLUE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS_TB,RGB_BLUE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS_CENTER,RGB_BLUE,0,2);
 
   
   while(digitalRead(PIN_INPUT_START) != HIGH)
@@ -442,7 +447,7 @@ void SetLightsInPouringMode()
     Jag_Lights::ClearLightEvents();
     
   //Blink the start button red
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_START,RGB_RED,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RG_START,RG_RED_MAGENTA,0,1);  
 
   //Blink all the flavour lights in a row
   for(int i = 0; i < NUMBER_OF_FLAVOURS;i++)
@@ -451,9 +456,8 @@ void SetLightsInPouringMode()
   }
   
   //Blink center stage lights yellow
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS1,RGB_YELLOW,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS2,RGB_YELLOW,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS3,RGB_YELLOW,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS_TB,RGB_YELLOW,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF,LIGHT_RGB_CS_CENTER,RGB_YELLOW,0,2);
 
 }
 
@@ -468,11 +472,11 @@ void SetLightsForTubeIsReadyWithTopUp()
   }
    
    //Light the center stage on white
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS_TB,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS_CENTER,RGB_WHITE,0,2);
+  
   //Turn the start button on to green
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RGB_START,RGB_GREEN,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON,LIGHT_RG_START,RG_GREEN_CYAN,0,1);  
 }
 void SetLightsForTubeIsReady()
 {
@@ -485,11 +489,11 @@ void SetLightsForTubeIsReady()
   }
    
    //Light the center stage on white
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS1,RGB_WHITE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS2,RGB_WHITE,0,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS3,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS_TB,RGB_WHITE,0,2);
+  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR,LIGHT_RGB_CS_CENTER,RGB_WHITE,0,2);
+
   //Turn the start button on to green
-  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RGB_START,0,0,1);  
+  Jag_Lights::RegisterLightEvent(EVENT_OFF,LIGHT_RG_START,0,0,1);  
 }
 
 
