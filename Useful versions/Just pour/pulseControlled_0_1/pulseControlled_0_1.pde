@@ -55,12 +55,14 @@ One Stop/Reset button
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-#define MOTOR_PREP_STEPS 3000
+int motor_prepSteps_per_flavour[6] = {2400,2000,2000,0,0,0};
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
+#define MAX_NUMBER_OF_FLAVOURS 3
 
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
 int FlavourSelectInputs[NUMBER_OF_FLAVOURS] = {PIN_INPUT_FLAV_1, PIN_INPUT_FLAV_2, PIN_INPUT_FLAV_3, PIN_INPUT_FLAV_4, PIN_INPUT_FLAV_5, PIN_INPUT_FLAV_6};
 int HowManyFlavoursSelected = 0;
+
 
 
 void setup() {
@@ -239,30 +241,43 @@ waitForGo:
   
 }
 
+int GetMaskForSelectedFlavours()
+{
+    unsigned int finalBitMask = 0; 
+    
+    for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+    {
+      if(SelectedFlavours[i])
+        bitSet(finalBitMask,i);
+    }
+    
+    return finalBitMask;
+}
+
 void PrepSelectedMotors()
 {
-  //initialize each selected motor and
-  //move 20 steps
-  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-  {
-    if(SelectedFlavours[i])
-    {
-      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_DOWN);
-    }
-  }
+  
+  RunMultipleMotors(GetMaskForSelectedFlavours(), motor_prepSteps_per_flavour[HowManyFlavoursSelected-1],DIR_DOWN);
+//  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+//  {
+//    if(SelectedFlavours[i])
+//    {
+//      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_DOWN);
+//    }
+//  }
 }
 
 void ResetSelectedMotors()
 {
-  //initialize each selected motor and
-  //move 20 steps
-  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-  {
-    if(SelectedFlavours[i])
-    {
-      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_UP);
-    }
-  }
+  RunMultipleMotors(GetMaskForSelectedFlavours(), motor_prepSteps_per_flavour[HowManyFlavoursSelected-1],DIR_UP);
+// 
+//  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+//  {
+//    if(SelectedFlavours[i])
+//    {
+//      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_UP);
+//    }
+//  }
 }
 
 
@@ -281,19 +296,21 @@ void Pour()
   
   while(digitalRead(PIN_INPUT_STOP) == LOW && stepsPerformed < MAX_STEPS_FILL_TUBE)
   {
-    for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-    {
-      if(digitalRead(PIN_INPUT_STOP) == HIGH)
-        goto stop_Pouring;
-      if(SelectedFlavours[i])
-      {
-        RunMotor(i+1,MOTOR_RUN_STEPS_PER_CYCLE, DIR_DOWN);
-        stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE;
-      }
+    
+    RunMultipleMotors(GetMaskForSelectedFlavours(),MOTOR_RUN_STEPS_PER_CYCLE,DIR_DOWN);    
+//    for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+//    {
+//      if(digitalRead(PIN_INPUT_STOP) == HIGH)
+//        goto stop_Pouring;
+//      if(SelectedFlavours[i])
+//      {
+//        RunMotor(i+1,MOTOR_RUN_STEPS_PER_CYCLE, DIR_DOWN);
+        stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE * HowManyFlavoursSelected;
+//      }
       if(digitalRead(PIN_INPUT_STOP) == HIGH)
         goto stop_Pouring;
         
-    }
+//    }
 
   }
 
@@ -301,6 +318,30 @@ stop_Pouring:
   StopAllMotors();
   delay(5000);
   ResetSelectedMotors(); 
+}
+
+void RunMultipleMotors(int motorMask, unsigned long runDuration, int dir)
+{
+  //set direction
+  digitalWrite(PIN_MOTOR_DIR,dir);
+
+  unsigned long startTime = millis();
+  unsigned long timeNow = millis();
+  unsigned int stepCount = 0;
+
+    Serial.println("");
+    
+    Serial.print("Running Motor mask:");
+    Serial.print(motorMask, BIN);
+    Serial.println();
+    Serial.print("Direction: ");
+    Serial.println(dir);
+    Serial.print("Duration: ");
+    Serial.println(runDuration);
+    
+    SelectMultipleMotor(motorMask);
+    delay(runDuration);
+    SelectMotor(0);  
 }
 
 void RunMotor(int motorNumber, unsigned long runDuration, int dir)
@@ -356,23 +397,27 @@ void ReadInFlavourButtons()
     //It will set it to true if the flavour was not previously selected
     if(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
     {
-      SelectedFlavours[i] = SelectedFlavours[i] ^ true;
-      if(SelectedFlavours[i])
-      {      
-        HowManyFlavoursSelected++;
-        //Pulse that motor
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
-        delay(100);
-        RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);
-        //Wait until button is released
-        while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
+
+      if(SelectedFlavours[i] ^ true)
+      {     
+        if(HowManyFlavoursSelected < MAX_NUMBER_OF_FLAVOURS)
         {
-          RunMotor(selectedMotor,DIR_DOWN);
+          SelectedFlavours[i] = SelectedFlavours[i] ^ true; 
+          HowManyFlavoursSelected++;
+          //Pulse that motor
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
+          delay(100);
+          RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);
+          //Wait until button is released
+          while(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
+          {
+            RunMotor(selectedMotor,DIR_DOWN);
+          }
+          StopAllMotors();
         }
-        StopAllMotors();
-        
       } else
       {
+        SelectedFlavours[i] = SelectedFlavours[i] ^ true;
         HowManyFlavoursSelected--;
         //Pulse that motor
         RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
@@ -401,6 +446,21 @@ boolean IsAnalogInputThresholdMet(int analogPin)
 {
   return analogRead(analogPin) > ANALOG_THRESHOLD;  
 }
+
+void SelectMultipleMotor(int motorBitMask)
+{
+   
+  Serial.print("Value of motorSelect: ");
+  Serial.println(motorBitMask,BIN);
+    
+  //Shift the value out to enable only the selected motor
+  digitalWrite(PIN_MOTOR_ST, LOW);
+  digitalWrite(PIN_MOTOR_SH, LOW);
+  
+  shiftOut(PIN_MOTOR_EN, PIN_MOTOR_SH, MSBFIRST, motorBitMask);
+  
+  digitalWrite(PIN_MOTOR_ST, HIGH);
+} 
 
 //motorNumber to 0 to stop nall motors
 void SelectMotor(int motorNumber)
