@@ -55,7 +55,9 @@ One Stop/Reset button
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-int motor_prepSteps_per_flavour[6] = {2400,2000,2000,0,0,0};
+int motor_prepSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
+int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
+#define MOTOR_INTER_PULSE_DELAY = 1000;
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
 
@@ -269,7 +271,7 @@ void PrepSelectedMotors()
 
 void ResetSelectedMotors()
 {
-  RunMultipleMotors(GetMaskForSelectedFlavours(), motor_prepSteps_per_flavour[HowManyFlavoursSelected-1],DIR_UP);
+  RunMultipleMotors(GetMaskForSelectedFlavours(), motor_relieveSteps_per_flavour[HowManyFlavoursSelected-1],DIR_UP);
 // 
 //  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
 //  {
@@ -305,6 +307,7 @@ void Pour()
 //      if(SelectedFlavours[i])
 //      {
 //        RunMotor(i+1,MOTOR_RUN_STEPS_PER_CYCLE, DIR_DOWN);
+    delay(MOTOR_INTER_PULSE_DELAY);
         stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE * HowManyFlavoursSelected;
 //      }
       if(digitalRead(PIN_INPUT_STOP) == HIGH)
