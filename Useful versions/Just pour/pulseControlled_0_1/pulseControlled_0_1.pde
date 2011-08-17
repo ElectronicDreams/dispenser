@@ -55,9 +55,9 @@ One Stop/Reset button
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-int motor_prepSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
-int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
-#define MOTOR_INTER_PULSE_DELAY = 1000;
+int motor_prepSteps_per_flavour[6] = {3000,3000,3000,0,0,0};
+int motor_relieveSteps_per_flavour[6] = {3000,3000,3000,0,0,0};
+#define MOTOR_INTER_PULSE_DELAY 0
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
 
