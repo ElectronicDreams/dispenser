@@ -431,7 +431,7 @@ void RunMultipleMotors(int motorMask,int dir)
 
   //set direction
   digitalWrite(PIN_MOTOR_DIR,dir); 
-  SelectMultipleMotors(motorMask);
+  SelectMultipleMotor(motorMask);
    
 }
 
