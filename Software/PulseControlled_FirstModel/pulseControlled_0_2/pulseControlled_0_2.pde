@@ -26,9 +26,14 @@ One Stop/Reset button
 #define PIN_INPUT_START 6
 #define PIN_INPUT_STOP 5
 
-#define PIN_ESTOP_READ 10
-#define PIN_ESTOP_LOAD 3
-#define PIN_ESTOP_CLOCK 4
+
+
+#define NUMBER_OF_SHIFT_CHIPS   2
+#define DATA_WIDTH   NUMBER_OF_SHIFT_CHIPS * 8
+#define PULSE_WIDTH_USEC   5
+#define POLL_DELAY_MSEC   1
+
+#define BYTES_VAL_T unsigned int
 
 ////Flavour select lights
 //#define PIN_LIGHT_1 8
@@ -62,6 +67,12 @@ int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
 
+#define NEW_TUBE_MOTOR_RESET 45000
+
+int PIN_ESTOP_READ = 10;
+int PIN_ESTOP_LOAD = 3;
+int PIN_ESTOP_CLOCK = 4;
+
 byte AvailableFlavours = byte(B00111111);
 byte FlavoursInReloadPosition = byte(B00000000);
 byte HowManyAvailableFlavours = NUMBER_OF_FLAVOURS;
@@ -72,7 +83,7 @@ byte FlavoursReloading = byte(B00000000);
 
 boolean manualModeActive = true;
 
-word eStops = word(B00000000,B00000000);
+BYTES_VAL_T eStops = 0;
 
 word ESTOP_B_1 = word(B00000000,B00000001);
 word ESTOP_B_2 = word(B00000000,B00000010);
@@ -107,13 +118,6 @@ void setup() {
   pinMode(PIN_INPUT_START, INPUT);
   pinMode(PIN_INPUT_STOP, INPUT);
 
-  
-  pinMode(PIN_INPUT_FLAV_1, INPUT);
-  pinMode(PIN_INPUT_FLAV_2, INPUT);
-  pinMode(PIN_INPUT_FLAV_3, INPUT);
-  pinMode(PIN_INPUT_FLAV_4, INPUT);
-  pinMode(PIN_INPUT_FLAV_5, INPUT);
-  pinMode(PIN_INPUT_FLAV_6, INPUT);
 
   //Set speed
   //setPwmFrequency(9,4);
@@ -125,6 +129,10 @@ void setup() {
   
   //Permanently output a PWM output to the MOTOR_PIN_PULSE
   analogWrite(PIN_MOTOR_PULSE, 175);
+  
+  
+  digitalWrite(PIN_ESTOP_CLOCK, LOW);
+  digitalWrite(PIN_ESTOP_LOAD, HIGH);
   
   InitializeSequence();
 }
@@ -154,8 +162,8 @@ void DetectAvailableFlavours()
   eStops = CheckEStops();
   
   //Flavours with at least one of the eStop triggered is made unavailable.
-  AvailableFlavours = ~(highByte(eStops));
-  FlavoursInReloadPosition = lowByte(eStops);
+  AvailableFlavours = ~(lowByte(eStops));
+  FlavoursInReloadPosition = (highByte(eStops));
   byte availableCount =0;
   for(int i = 0 ; i < NUMBER_OF_FLAVOURS; i++)
   {
@@ -167,7 +175,7 @@ void DetectAvailableFlavours()
 
 boolean IsFlavourAvailable(int flavourIndex)
 {
-  return (AvailableFlavours & ~FlavoursReloading) & (B00000001 << flavourIndex) != 0;
+  return ((unsigned int)((AvailableFlavours & ~FlavoursReloading & ~FlavoursInReloadPosition) & (B00000001 << flavourIndex)) > 0);
 }
 
 boolean IsTopEStopTriggered(int flavourIndex)
@@ -226,26 +234,59 @@ void WaitForUserInputs()
   Serial.print(FlavoursReloading,BIN);
   Serial.println();  
   
-  //Are any flavours unavailable? If so then start reload process
-  if(~AvailableFlavours > 0 || FlavoursReloading > 0)
-  {
-    //initiate the reload sequence for those flavours
-    FlavoursReloading = FlavoursReloading | (~AvailableFlavours & ~FlavoursInReloadPosition);
-    RunMultipleMotors(FlavoursReloading, DIR_UP);
-  }
-  
 waitForFlavourOnly:
   //First, wait for at least one flavour to be selected
   while(HowManyFlavoursSelected < 1)
   {
     DetectAvailableFlavours();
-    //Update the FlavoursReloading bit mask and motorMask
-    FlavoursReloading = FlavoursReloading & ~FlavoursInReloadPosition;
-    RunMultipleMotors(FlavoursReloading, DIR_UP);    
     
-    Serial.print("FlavoursReloading:");
-    Serial.print(FlavoursReloading,BIN);
-    Serial.println();
+    //Handle exhausted cartridges... move motor to reload position
+    if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
+    {
+      //Update the FlavoursReloading bit mask and motorMask
+      FlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
+      RunMultipleMotors(FlavoursReloading, DIR_UP);  
+    } else {
+      StopAllMotors();
+    }
+    
+    //If a flavour is in reload position and operator signals a new cartridge has
+    //been inserted, then moved motor back in position
+    unsigned int motorToReset = (unsigned int)(~AvailableFlavours & FlavoursInReloadPosition);
+    if(motorToReset > 0)
+    {
+      Serial.println("Inside motorToReset confirm");
+      //Wait for confirmation
+      delay(2000);
+      DetectAvailableFlavours();
+      unsigned int motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
+      if(motorResetConfirm > 0)
+      {
+        //Wait for release of button
+        while((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
+        {
+          DetectAvailableFlavours();
+        }
+        unsigned long startTime = millis();
+        RunMultipleMotors(motorResetConfirm,DIR_DOWN);
+        delay(3000); //One second delay to allow time for the top estop to release
+        while(true)
+        {
+          DetectAvailableFlavours();
+          if(millis() - startTime >= NEW_TUBE_MOTOR_RESET)
+          {
+            StopAllMotors();
+            break;
+          }
+          if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
+          {
+            FlavoursReloading = motorResetConfirm & ~AvailableFlavours;
+            RunMultipleMotors(FlavoursReloading, DIR_UP);
+            break;            
+          }
+        }
+      }
+    }
     
     ReadInFlavourButtons(); 
      count++;  
@@ -282,7 +323,7 @@ waitForGo:
   
 }
 
-int GetMaskForSelectedFlavours()
+unsigned int GetMaskForSelectedFlavours()
 {
     unsigned int finalBitMask = 0; 
     
@@ -459,7 +500,7 @@ void ReadInFlavourButtons()
 
       if(SelectedFlavours[i] ^ true)
       {     
-        if(HowManyFlavoursSelected < MAX_NUMBER_OF_FLAVOURS && IsFlavourAvailable(i))
+        if((HowManyFlavoursSelected < MAX_NUMBER_OF_FLAVOURS) && IsFlavourAvailable(i))
         {
           SelectedFlavours[i] = SelectedFlavours[i] ^ true; 
           HowManyFlavoursSelected++;
@@ -480,7 +521,7 @@ void ReadInFlavourButtons()
         HowManyFlavoursSelected--;
         //Pulse that motor
         RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
-        delay(1000);
+        delay(700);
         RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_UP);  
   
         //Wait until button is released
@@ -509,12 +550,24 @@ boolean IsAnalogInputThresholdMet(int analogPin)
 void SelectMultipleMotor(int motorBitMask)
 {
    
-  Serial.print("Value of motorSelect: ");
-  Serial.println(motorBitMask,BIN);
+  //Serial.print("Value of motorSelect: ");
+  //Serial.println(motorBitMask,BIN);
     
   //Shift the value out to enable only the selected motor
   digitalWrite(PIN_MOTOR_ST, LOW);
   digitalWrite(PIN_MOTOR_SH, LOW);
+  
+  int motorCount = 0;
+  
+  //Check to make sure we are not running more than 3 motors at a time
+  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
+  {
+    if(bitRead(motorBitMask,i) == 1)
+      motorCount++;
+    
+    if(motorCount > MAX_NUMBER_OF_FLAVOURS)
+      bitClear(motorBitMask,i);
+  }
   
   shiftOut(PIN_MOTOR_EN, PIN_MOTOR_SH, MSBFIRST, motorBitMask);
   
@@ -546,26 +599,37 @@ void SelectMotor(int motorNumber)
   digitalWrite(PIN_MOTOR_ST, HIGH);
 } 
 
-  word CheckEStops()
+BYTES_VAL_T CheckEStops()
   {
-    //Read in all EStop Sensors
-    digitalWrite(PIN_ESTOP_LOAD,LOW);
-    delay(10);
-    digitalWrite(PIN_ESTOP_LOAD,HIGH);
-    delay(10);
-    
-    word valuesRead = word(B00000000,B00000000);
-    //Shift EStop values in
-    for(int i = 0; i <=15 ; i++)
+    byte bitVal;
+    BYTES_VAL_T bytesVal = 0;
+
+    /* Trigger a parallel Load to latch the state of the data lines,
+    */
+    digitalWrite(PIN_ESTOP_LOAD, LOW);
+    delayMicroseconds(PULSE_WIDTH_USEC);
+    digitalWrite(PIN_ESTOP_LOAD, HIGH);
+
+    /* Loop to read each bit value from the serial out line
+     * of the SN74HC165N.
+    */
+    for(int i = 0; i < DATA_WIDTH; i++)
     {
-      valuesRead = valuesRead >> 1;
-      valuesRead = valuesRead | (digitalRead(PIN_ESTOP_READ) << 15);
-      digitalWrite(PIN_ESTOP_CLOCK,LOW);
-      delay(10);
-      digitalWrite(PIN_ESTOP_CLOCK,HIGH);
+        bitVal = digitalRead(PIN_ESTOP_READ);
+
+        /* Set the corresponding bit in bytesVal.
+        */
+        bytesVal |= (bitVal << ((DATA_WIDTH-1) - i));
+
+        /* Pulse the Clock (rising edge shifts the next bit).
+        */
+        digitalWrite(PIN_ESTOP_CLOCK, HIGH);
+        delayMicroseconds(PULSE_WIDTH_USEC);
+        digitalWrite(PIN_ESTOP_CLOCK, LOW);
     }
-    
-    return valuesRead;
+
+    return(bytesVal);    
   }
+
 
 
