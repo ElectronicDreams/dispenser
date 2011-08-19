@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 /*
 Initial program to control the LipLabz balm machine.
 
@@ -99,6 +101,9 @@ word ESTOP_T_4 = word(B00001000,B00000000);
 word ESTOP_T_5 = word(B00010000,B00000000);
 word ESTOP_T_6 = word(B00100000,B00000000);
 
+//EEPROM ADDRESSES
+#define EEPROM_WASINITIALIZED 3
+#define EEPROM_FLAVOURSRELOADING 4
 
 void setup() {
   Serial.begin(9600);
@@ -133,6 +138,11 @@ void setup() {
   
   digitalWrite(PIN_ESTOP_CLOCK, LOW);
   digitalWrite(PIN_ESTOP_LOAD, HIGH);
+  
+  if(EEPROM.read(EEPROM_WASINITIALIZED) == 0)
+  {
+    FlavoursReloading = EEPROM.read(EEPROM_FLAVOURSRELOADING);
+  }
   
   InitializeSequence();
 }
@@ -243,8 +253,15 @@ waitForFlavourOnly:
     //Handle exhausted cartridges... move motor to reload position
     if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
     {
+      byte newFlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
+      
+      if(newFlavoursReloading != FlavoursReloading)
+      {
+        EEPROM.write(EEPROM_WASINITIALIZED, 0);
+        EEPROM.write(EEPROM_FLAVOURSRELOADING, newFlavoursReloading);
+      }
       //Update the FlavoursReloading bit mask and motorMask
-      FlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
+      FlavoursReloading = newFlavoursReloading;
       RunMultipleMotors(FlavoursReloading, DIR_UP);  
     } else {
       StopAllMotors();
@@ -281,6 +298,8 @@ waitForFlavourOnly:
           if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
           {
             FlavoursReloading = motorResetConfirm & ~AvailableFlavours;
+            EEPROM.write(EEPROM_WASINITIALIZED, 0);
+            EEPROM.write(EEPROM_FLAVOURSRELOADING, FlavoursReloading);
             RunMultipleMotors(FlavoursReloading, DIR_UP);
             break;            
           }
