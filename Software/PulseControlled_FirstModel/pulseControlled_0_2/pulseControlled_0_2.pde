@@ -325,13 +325,18 @@ waitForGo:
 
 unsigned int GetMaskForSelectedFlavours()
 {
-    unsigned int finalBitMask = 0; 
+    unsigned int finalBitMask = 0;
+    unsigned int numberOfFlavoursSelected = 0; 
     
     for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
     {
       if(SelectedFlavours[i] && IsFlavourAvailable(i))
+      {
         bitSet(finalBitMask,i);
+        numberOfFlavoursSelected++;
+      }
     }
+    HowManyFlavoursSelected = numberOfFlavoursSelected;
     
     return finalBitMask;
 }
@@ -498,11 +503,29 @@ void ReadInFlavourButtons()
     if(IsAnalogInputThresholdMet(FlavourSelectInputs[i]))
     {
 
-      if(SelectedFlavours[i] ^ true)
+      if(!SelectedFlavours[i])
       {     
-        if((HowManyFlavoursSelected < MAX_NUMBER_OF_FLAVOURS) && IsFlavourAvailable(i))
+        if(IsFlavourAvailable(i))
         {
-          SelectedFlavours[i] = SelectedFlavours[i] ^ true; 
+          if(HowManyFlavoursSelected >= MAX_NUMBER_OF_FLAVOURS)
+          {
+            //Unselect the first flavour that is selected
+            //Find first selected colour
+            for(int ii = 0;ii < NUMBER_OF_FLAVOURS;ii++)
+            {
+              if(SelectedFlavours[ii])
+              {
+                SelectedFlavours[ii] = false;
+                HowManyFlavoursSelected--;
+                //Pulse that motor
+                RunMotor(ii+1,MOTOR_SELECT_STEPS,DIR_DOWN);
+                delay(700);
+                RunMotor(ii+1,MOTOR_SELECT_STEPS,DIR_UP);  
+                break;
+              }
+            }
+          }
+          SelectedFlavours[i] = true; 
           HowManyFlavoursSelected++;
           //Pulse that motor
           RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
@@ -517,7 +540,7 @@ void ReadInFlavourButtons()
         }
       } else
       {
-        SelectedFlavours[i] = SelectedFlavours[i] ^ true;
+        SelectedFlavours[i] = false;
         HowManyFlavoursSelected--;
         //Pulse that motor
         RunMotor(selectedMotor,MOTOR_SELECT_STEPS,DIR_DOWN);
