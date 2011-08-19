@@ -13,11 +13,14 @@ void setup()
   {
     //eeprom was initialized already so just read the 
     //value from in there
-    
+    counter = EEPROM.read(EEPROM_COUNTER);
   }
-  else
-  {
-  }
+  
+  Serial.println(counter);
+  counter++;
+  
+  EEPROM.write(EEPROM_COUNTER, counter);
+  EEPROM.write(EEPROM_WAS_INITIALIZED,0);
   
 }
 
