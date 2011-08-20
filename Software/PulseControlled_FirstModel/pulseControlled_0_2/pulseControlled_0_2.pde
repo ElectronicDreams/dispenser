@@ -1,5 +1,7 @@
 #include <EEPROM.h>
-
+#include <MsTimer2.h>
+#include <QueueList.h>
+#include <jag_lights.h>
 /*
 Initial program to control the LipLabz balm machine.
 
@@ -25,10 +27,17 @@ One Stop/Reset button
 #define PIN_MOTOR_DIR 8
 #define PIN_MOTOR_PULSE 9
 
-#define PIN_INPUT_START 6
-#define PIN_INPUT_STOP 5
+//#define PIN_INPUT_START 6
+//#define PIN_INPUT_STOP 5
 
 
+#define PIN_ESTOP_READ 10
+#define PIN_ESTOP_LOAD 3
+#define PIN_ESTOP_CLOCK 4
+
+#define PIN_LIGHTS_SCLK 5
+#define PIN_LIGHTS_CLK 6
+#define PIN_LIGHTS_SERIAL 7
 
 #define NUMBER_OF_SHIFT_CHIPS   2
 #define DATA_WIDTH   NUMBER_OF_SHIFT_CHIPS * 8
@@ -36,14 +45,6 @@ One Stop/Reset button
 #define POLL_DELAY_MSEC   1
 
 #define BYTES_VAL_T unsigned int
-
-////Flavour select lights
-//#define PIN_LIGHT_1 8
-//#define PIN_LIGHT_2 9
-//#define PIN_LIGHT_3 10
-//#define PIN_LIGHT_4 11
-//#define PIN_LIGHT_5 12
-//#define PIN_LIGHT_6 13
 
 //Flavour select pins, use analog inputs
 #define PIN_INPUT_FLAV_1 0
@@ -65,15 +66,12 @@ One Stop/Reset button
 #define MOTOR_ESTOP_INCREMENT 200
 int motor_prepSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
 int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
-#define MOTOR_INTER_PULSE_DELAY 1000
+#define MOTOR_INTER_PULSE_DELAY 0
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
 
 #define NEW_TUBE_MOTOR_RESET 45000
-
-int PIN_ESTOP_READ = 10;
-int PIN_ESTOP_LOAD = 3;
-int PIN_ESTOP_CLOCK = 4;
+#define FLAVOUR_SELECT_TIMEOUT 30000
 
 byte AvailableFlavours = byte(B00111111);
 byte FlavoursInReloadPosition = byte(B00000000);
@@ -85,7 +83,7 @@ byte FlavoursReloading = byte(B00000000);
 
 boolean manualModeActive = true;
 
-BYTES_VAL_T eStops = 0;
+BYTES_VAL_T PInputs = 0;
 
 word ESTOP_B_1 = word(B00000000,B00000001);
 word ESTOP_B_2 = word(B00000000,B00000010);
@@ -101,9 +99,53 @@ word ESTOP_T_4 = word(B00001000,B00000000);
 word ESTOP_T_5 = word(B00010000,B00000000);
 word ESTOP_T_6 = word(B00100000,B00000000);
 
+word START = word(B01000000,B00000000);
+word STOP = word(B10000000,B00000000);
+
 //EEPROM ADDRESSES
 #define EEPROM_WASINITIALIZED 3
 #define EEPROM_FLAVOURSRELOADING 4
+
+unsigned long LIGHT_RGB_RIB1 = 7; //               00000000 00000000 00000000 00000111
+unsigned long LIGHT_RGB_RIB2 = 56; //              00000000 00000000 00000000 00111000
+unsigned long LIGHT_RGB_RIB3 = 448; //             00000000 00000000 00000001 11000000
+unsigned long LIGHT_RGB_RIB4 = 3584; //            00000000 00000000 00001110 00000000
+unsigned long LIGHT_RGB_RIB5 = 28672; //           00000000 00000000 01110000 00000000
+unsigned long LIGHT_RGB_RIB6 = 229376; //          00000000 00000011 10000000 00000000
+
+unsigned long LIGHT_RG_START = 786432; //          00000000 00001100 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR1 = 1048576; //   00000000 00010000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR2 = 2097152; //   00000000 00100000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR3 = 4194304; //   00000000 01000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR4 = 8388608; //   00000000 10000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR5 = 16777216; //  00000001 00000000 00000000 00000000
+unsigned long LIGHT_WHITE_FLAVOUR6 = 33554432; //  00000010 00000000 00000000 00000000
+unsigned long LIGHT_RGB_CS_TB = 469762048; //      00011100 00000000 00000000 00000000
+unsigned long LIGHT_RGB_CS_CENTER = 3758096384; // 11100000 00000000 00000000 00000000
+
+unsigned long FlavourLightsArray[NUMBER_OF_FLAVOURS] = {LIGHT_WHITE_FLAVOUR1, LIGHT_WHITE_FLAVOUR2, LIGHT_WHITE_FLAVOUR3, LIGHT_WHITE_FLAVOUR4, LIGHT_WHITE_FLAVOUR5, LIGHT_WHITE_FLAVOUR6};
+
+byte RGB_WHITE = B111;
+byte RGB_OFF = B000;
+byte RGB_RED = B100;
+byte RGB_GREEN = B001;
+byte RGB_BLUE = B010;
+byte RGB_YELLOW = B101;
+byte RGB_CYAN = B011;
+byte RGB_MAGENTA = B110;
+
+//Hard wire blue for 4 colours
+byte RG_YELLOW_WHITE = B11;
+byte RG_RED_MAGENTA = B10;
+byte RG_GREEN_CYAN = B01;
+byte RG_OFF_BLUE = B00;
+
+byte W_ON = B1;
+byte W_OFF = B0;
+
+unsigned long LIGHT_ALL_ON = 4294967295;
+unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
+
 
 void setup() {
   Serial.begin(9600);
@@ -120,8 +162,9 @@ void setup() {
   pinMode(PIN_ESTOP_LOAD, OUTPUT);
   pinMode(PIN_ESTOP_CLOCK, OUTPUT);
   
-  pinMode(PIN_INPUT_START, INPUT);
-  pinMode(PIN_INPUT_STOP, INPUT);
+  pinMode(PIN_LIGHTS_SCLK, OUTPUT);
+  pinMode(PIN_LIGHTS_CLK, OUTPUT);
+  pinMode(PIN_LIGHTS_SERIAL, OUTPUT);
 
 
   //Set speed
@@ -144,11 +187,13 @@ void setup() {
     FlavoursReloading = EEPROM.read(EEPROM_FLAVOURSRELOADING);
   }
   
+  Jag_Lights::SetupLights(CurrentLightValues,PIN_LIGHTS_SCLK, PIN_LIGHTS_CLK, PIN_LIGHTS_SERIAL);
+  
   InitializeSequence();
 }
 
 void loop() {
-  DetectAvailableFlavours();
+  ReadInputs();
   
   WaitForUserInputs();
   
@@ -161,19 +206,19 @@ void loop() {
 void InitializeSequence()
 {
   ResetAllFlavours();
-  DetectAvailableFlavours();
+  ReadInputs();
   SelfTest_Motors();
 }
 
 //Check all eStops and make flavours unavailable in case 
 //eStop is triggered
-void DetectAvailableFlavours()
+void ReadInputs()
 {
-  eStops = CheckEStops();
+  PInputs = ShiftInParallelInputs();
   
   //Flavours with at least one of the eStop triggered is made unavailable.
-  AvailableFlavours = ~(lowByte(eStops));
-  FlavoursInReloadPosition = (highByte(eStops));
+  AvailableFlavours = ~(lowByte(PInputs) & B00111111);
+  FlavoursInReloadPosition = (highByte(PInputs)& B00111111);
   byte availableCount =0;
   for(int i = 0 ; i < NUMBER_OF_FLAVOURS; i++)
   {
@@ -183,19 +228,19 @@ void DetectAvailableFlavours()
   HowManyAvailableFlavours = availableCount;
 }
 
+boolean IsStartButtonPressed()
+{
+  return (word)(PInputs & START) == START;
+}
+
+boolean IsStopButtonPressed()
+{
+  return (word)(PInputs & STOP) == STOP;  
+}
+
 boolean IsFlavourAvailable(int flavourIndex)
 {
   return ((unsigned int)((AvailableFlavours & ~FlavoursReloading & ~FlavoursInReloadPosition) & (B00000001 << flavourIndex)) > 0);
-}
-
-boolean IsTopEStopTriggered(int flavourIndex)
-{
-  return highByte(eStops) & (B00000001 << flavourIndex) > 0;
-}
-
-boolean IsBottomEStopTriggered(int flavourIndex)
-{
-  return lowByte(eStops) & (B00000001 << flavourIndex) > 0;
 }
 
 void SelfTest_Motors()
@@ -248,7 +293,7 @@ waitForFlavourOnly:
   //First, wait for at least one flavour to be selected
   while(HowManyFlavoursSelected < 1)
   {
-    DetectAvailableFlavours();
+    ReadInputs();
     
     //Handle exhausted cartridges... move motor to reload position
     if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
@@ -275,21 +320,21 @@ waitForFlavourOnly:
       Serial.println("Inside motorToReset confirm");
       //Wait for confirmation
       delay(2000);
-      DetectAvailableFlavours();
+      ReadInputs();
       unsigned int motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
       if(motorResetConfirm > 0)
       {
         //Wait for release of button
         while((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
         {
-          DetectAvailableFlavours();
+          ReadInputs();
         }
         unsigned long startTime = millis();
         RunMultipleMotors(motorResetConfirm,DIR_DOWN);
         delay(3000); //One second delay to allow time for the top estop to release
         while(true)
         {
-          DetectAvailableFlavours();
+          ReadInputs();
           if(millis() - startTime >= NEW_TUBE_MOTOR_RESET)
           {
             StopAllMotors();
@@ -320,12 +365,32 @@ waitForFlavourOnly:
   
 waitForGo:
   StopAllMotors();
+  unsigned int flavourSelectedTime;
+  flavourSelectedTime = millis();
+  ReadInputs();
   //Now wait for either an extra flavour to be selected/deselected
   //But also check the "GO" button or reset
-  while(digitalRead(PIN_INPUT_START) != HIGH)
+  while(!IsStartButtonPressed())
   {
+    int savedNumberOfFlavours = HowManyFlavoursSelected;
     ReadInFlavourButtons();
-    if(digitalRead(PIN_INPUT_STOP) == HIGH || HowManyFlavoursSelected == 0)
+    if(savedNumberOfFlavours != HowManyFlavoursSelected)
+      flavourSelectedTime = millis();
+    
+    ReadInputs();
+    Serial.print("HowManyFlavoursSelected: ");
+    Serial.print(HowManyFlavoursSelected);
+    Serial.println();
+
+    Serial.print("IsStopButtonPressed: ");
+    Serial.print(IsStopButtonPressed());
+    Serial.println();
+
+    Serial.print("millis() - flavourSelectedTime : ");
+    Serial.print(millis() - flavourSelectedTime);
+    Serial.println();    
+    
+    if(IsStopButtonPressed() || HowManyFlavoursSelected == 0 || (millis() - flavourSelectedTime > FLAVOUR_SELECT_TIMEOUT))
     {
       ResetAllFlavours();
       goto waitForFlavourOnly;
@@ -337,7 +402,7 @@ waitForGo:
       Serial.println("WAITING FOR START");      
       DumpSelectedFlavour();
     }
-
+     ReadInputs();
   }
   
 }
@@ -391,7 +456,7 @@ void ResetSelectedMotors()
 // user interrupted
 void Pour()
 {
-  DetectAvailableFlavours();    
+  ReadInputs();    
   PrepSelectedMotors();
   
   //Calculate number of steps per flavour based on number of flavours selected.
@@ -400,9 +465,8 @@ void Pour()
   int stepsPerformed = 0;
   boolean stopRequested = false;
   
-  while(digitalRead(PIN_INPUT_STOP) == LOW && stepsPerformed < MAX_STEPS_FILL_TUBE)
+  while(!IsStopButtonPressed() && stepsPerformed < MAX_STEPS_FILL_TUBE)
   {
-    
     RunMultipleMotors(GetMaskForSelectedFlavours(),MOTOR_RUN_STEPS_PER_CYCLE,DIR_DOWN);    
 //    for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
 //    {
@@ -414,9 +478,9 @@ void Pour()
     delay(MOTOR_INTER_PULSE_DELAY);
     stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE * HowManyFlavoursSelected;
 //      }
-    DetectAvailableFlavours();
+    ReadInputs();
 
-    if(digitalRead(PIN_INPUT_STOP) == HIGH || GetMaskForSelectedFlavours() == 0)
+    if(IsStopButtonPressed() || GetMaskForSelectedFlavours() == 0)
       goto stop_Pouring;
         
 //    }
@@ -641,7 +705,7 @@ void SelectMotor(int motorNumber)
   digitalWrite(PIN_MOTOR_ST, HIGH);
 } 
 
-BYTES_VAL_T CheckEStops()
+BYTES_VAL_T ShiftInParallelInputs()
   {
     byte bitVal;
     BYTES_VAL_T bytesVal = 0;
