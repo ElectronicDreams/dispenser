@@ -147,14 +147,6 @@ void setup() {
   pinMode(PIN_INPUT_START, INPUT);
   pinMode(PIN_INPUT_STOP, INPUT);
 
-  
-  pinMode(PIN_INPUT_FLAV_1, INPUT);
-  pinMode(PIN_INPUT_FLAV_2, INPUT);
-  pinMode(PIN_INPUT_FLAV_3, INPUT);
-  pinMode(PIN_INPUT_FLAV_4, INPUT);
-  pinMode(PIN_INPUT_FLAV_5, INPUT);
-  pinMode(PIN_INPUT_FLAV_6, INPUT);
-
   //Disable all motors
    StopAllMotors();
   
