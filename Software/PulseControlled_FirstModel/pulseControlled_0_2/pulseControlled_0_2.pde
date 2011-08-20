@@ -35,9 +35,9 @@ One Stop/Reset button
 #define PIN_ESTOP_LOAD 3
 #define PIN_ESTOP_CLOCK 4
 
-#define PIN_LIGHTS_SCLK 5
-#define PIN_LIGHTS_CLK 6
-#define PIN_LIGHTS_SERIAL 7
+#define PIN_LIGHTS_SCLK 5 //blue
+#define PIN_LIGHTS_CLK 6 //green
+#define PIN_LIGHTS_SERIAL 7 //white
 
 #define NUMBER_OF_SHIFT_CHIPS   2
 #define DATA_WIDTH   NUMBER_OF_SHIFT_CHIPS * 8
@@ -64,8 +64,8 @@ One Stop/Reset button
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-int motor_prepSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
-int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,0,0,0};
+int motor_prepSteps_per_flavour[6] = {1000,1000,1000,1000,1000,1000};
+int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,1000,1000,1000};
 #define MOTOR_INTER_PULSE_DELAY 0
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
@@ -298,7 +298,8 @@ waitForFlavourOnly:
     //Handle exhausted cartridges... move motor to reload position
     if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
     {
-      byte newFlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
+      byte newFlavoursReloading;
+      newFlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
       
       if(newFlavoursReloading != FlavoursReloading)
       {
@@ -314,14 +315,16 @@ waitForFlavourOnly:
     
     //If a flavour is in reload position and operator signals a new cartridge has
     //been inserted, then moved motor back in position
-    unsigned int motorToReset = (unsigned int)(~AvailableFlavours & FlavoursInReloadPosition);
+    unsigned int motorToReset;
+    motorToReset = (unsigned int)(~AvailableFlavours & FlavoursInReloadPosition);
     if(motorToReset > 0)
     {
       Serial.println("Inside motorToReset confirm");
       //Wait for confirmation
       delay(2000);
       ReadInputs();
-      unsigned int motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
+      unsigned int motorResetConfirm;
+      motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
       if(motorResetConfirm > 0)
       {
         //Wait for release of button
@@ -329,7 +332,9 @@ waitForFlavourOnly:
         {
           ReadInputs();
         }
-        unsigned long startTime = millis();
+        unsigned long startTime;
+        startTime = millis();
+        
         RunMultipleMotors(motorResetConfirm,DIR_DOWN);
         delay(3000); //One second delay to allow time for the top estop to release
         while(true)
@@ -372,7 +377,8 @@ waitForGo:
   //But also check the "GO" button or reset
   while(!IsStartButtonPressed())
   {
-    int savedNumberOfFlavours = HowManyFlavoursSelected;
+    int savedNumberOfFlavours;
+    savedNumberOfFlavours = HowManyFlavoursSelected;
     ReadInFlavourButtons();
     if(savedNumberOfFlavours != HowManyFlavoursSelected)
       flavourSelectedTime = millis();
