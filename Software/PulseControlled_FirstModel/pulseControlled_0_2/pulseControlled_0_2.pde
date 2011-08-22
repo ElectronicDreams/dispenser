@@ -60,13 +60,13 @@ One Stop/Reset button
 // **** CONSTANTS ****
 #define ANALOG_THRESHOLD 900
 #define NUMBER_OF_FLAVOURS 6
-#define MAX_STEPS_FILL_TUBE 2000 //time running motor to a full tube
+#define MAX_STEPS_FILL_TUBE 1400 //time running motor to a full tube
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-int motor_prepSteps_per_flavour[6] = {1000,1000,1000,1000,1000,1000};
-int motor_relieveSteps_per_flavour[6] = {1000,1000,1000,1000,1000,1000};
-#define MOTOR_INTER_PULSE_DELAY 0
+int motor_prepSteps_per_flavour[6] = {4000,4000,4000,4000,4000,4000};
+int motor_relieveSteps_per_flavour[6] = {4000,4000,4000,4000,4000,4000};
+#define MOTOR_INTER_PULSE_DELAY 2000
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
 
