@@ -342,3 +342,13 @@ void Jag_Lights::HandleLights()
   // Serial.print(micros() - timeStart);
   // Serial.println(" um");
 } 
+
+void Jag_Lights::Suspend()
+{
+	MsTimer2::stop();
+}
+
+void Jag_Lights::Continue()
+{
+	MsTimer2::start();
+}

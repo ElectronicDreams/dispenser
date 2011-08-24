@@ -51,5 +51,7 @@ namespace Jag_Lights {
 	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier);
 	void ClearLightEvents();
 	void HandleLights();
+	void Suspend();
+	void Continue();
 };
 #endif // _JAG_LIGHTS_H

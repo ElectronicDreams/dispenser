@@ -153,7 +153,6 @@ unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 111
 
 
 void setup() {
-  Serial.begin(9600);
   
   //Set input/output modes
   pinMode(PIN_MOTOR_ST, OUTPUT);
@@ -162,6 +161,8 @@ void setup() {
   pinMode(PIN_MOTOR_EN, OUTPUT);
   pinMode(PIN_MOTOR_DIR, OUTPUT);
   pinMode(PIN_MOTOR_PULSE, OUTPUT);
+  //Disable all motors
+  StopAllMotors();
   
   pinMode(PIN_ESTOP_READ, INPUT);
   pinMode(PIN_ESTOP_LOAD, OUTPUT);
@@ -170,14 +171,9 @@ void setup() {
   pinMode(PIN_LIGHTS_SCLK, OUTPUT);
   pinMode(PIN_LIGHTS_CLK, OUTPUT);
   pinMode(PIN_LIGHTS_SERIAL, OUTPUT);
-
-
-  //Set speed
-  //setPwmFrequency(9,4);
   
-  //Disable all motors
-  StopAllMotors();
   
+  Serial.begin(9600);
   delay(2000);
   
   //Permanently output a PWM output to the MOTOR_PIN_PULSE
@@ -256,12 +252,14 @@ boolean IsFlavourAvailable(int flavourIndex)
 
 void SelfTest_Motors()
 {
+  Jag_Lights::Suspend();
   //Select each motor and pulse them down, then pulse them up
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
     RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_DOWN);
     RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_UP);
   }
+  Jag_Lights::Continue();
 }
 
 void ResetAllFlavours()
@@ -358,7 +356,7 @@ waitForFlavourOnly:
       delay(2000);
       ReadInputs();
       unsigned int motorResetConfirm;
-      motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
+      motorResetConfirm =(unsigned int)( ~AvailableFlavours & FlavoursInReloadPosition);
       if(motorResetConfirm > 0)
       {
         //Wait for release of button
@@ -398,7 +396,7 @@ waitForFlavourOnly:
           }
           if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
           {
-            FlavoursReloading = motorResetConfirm & ~AvailableFlavours;
+            FlavoursReloading = motorResetConfirm;
             EEPROM.write(EEPROM_WASINITIALIZED, 0);
             EEPROM.write(EEPROM_FLAVOURSRELOADING, FlavoursReloading);
             RunMultipleMotors(FlavoursReloading, DIR_UP);
@@ -428,7 +426,7 @@ waitForGo:
  lastLightType = 0;
   
   //Now wait for either an extra flavour to be selected/deselected
-  //But also check the "GO" button or reset
+  //But also check the "GO" button or reset\
   while(!IsStartButtonPressed())
   {
     
@@ -872,7 +870,7 @@ void RegisterFlavoursLightsToSelect(byte eventType, byte multiplier)
     {
       if (!SelectedFlavours[i])
       {
-        Jag_Lights::RegisterLightEvent(eventType , FlavourLightsArray[i], W_ON, 0, (i + 1) % 3,multiplier);
+        Jag_Lights::RegisterLightEvent(eventType , FlavourLightsArray[i], W_ON, (i + 1) % 3, totalSlice ,multiplier);
       }
       else
       {
