@@ -45,9 +45,9 @@ void Jag_Lights::SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, in
   t_PIN_LIGHTS_SCLK = pin_LIGHTS_SCLK;
   t_PIN_LIGHTS_CLK = pin_LIGHTS_CLK;
   t_PIN_LIGHTS_SERIAL = pin_LIGHTS_SERIAL;
-  LightEventSliceCount = 0;
+  LightEventSliceCount = 1;
   CurrentLightValues = initialValue;
-  MsTimer2::set(250, Jag_Lights::HandleLights); 
+  MsTimer2::set(100, Jag_Lights::HandleLights); 
   MsTimer2::start();
 }
 
@@ -198,6 +198,7 @@ void Jag_Lights::UpdateLights(unsigned long lightValues)
 //and update the lightValues + push new values accordingly
 void Jag_Lights::HandleLights()
 {
+  MsTimer2::stop();
   unsigned long timeStart = micros();
   // Serial.println("In HandleLights");
   // Serial.println(CurrentLightValues,BIN);
@@ -221,26 +222,35 @@ void Jag_Lights::HandleLights()
     totalSlices = q_totalSlices.pop();  
 	multiplier = q_multiplier.pop();
     
-	// Serial.println("Event registered:");
-	// Serial.print("type: ");
-	// Serial.print(eventType,DEC);
-	// Serial.println();
-	// Serial.print("lightCode: ");
-	// Serial.print(lightCode,BIN);
-	// Serial.println();
-	// Serial.print("color: ");
-	// Serial.print(color,BIN);
-	// Serial.println();
-	// Serial.print("slice: ");
-	// Serial.print(slice,DEC);
-	// Serial.println();
-	// Serial.print("totalSlices: ");
-	// Serial.print(totalSlices,DEC);
-	// Serial.println();
+	Serial.println("Event registered:");
+	Serial.print("type: ");
+	Serial.print(eventType,DEC);
+	Serial.println();
+	Serial.print("lightCode: ");
+	Serial.print(lightCode,BIN);
+	Serial.println();
+	Serial.print("color: ");
+	Serial.print(color,BIN);
+	Serial.println();
+	Serial.print("slice: ");
+	Serial.print(slice,DEC);
+	Serial.println();
+	Serial.print("totalSlices: ");
+	Serial.print(totalSlices,DEC);
+	Serial.println();
+	
+	Serial.print("Multiplier: ");
+	Serial.print(multiplier,DEC);
+	Serial.println();
+	
+	Serial.print("LightEventSliceCount: ");
+	Serial.print(LightEventSliceCount,DEC);
+	Serial.println();
+	
 
-	// Serial.print("CurrentLightValues: ");
-	// Serial.print(CurrentLightValues,BIN);
-	// Serial.println();
+	Serial.print("CurrentLightValues: ");
+	Serial.print(CurrentLightValues,BIN);
+	Serial.println();
 
     switch (eventType)
     {
@@ -255,6 +265,7 @@ void Jag_Lights::HandleLights()
       case EVENT_BLINK:
 		if(LightEventSliceCount % multiplier == 0)
 		{
+			Serial.println("inside blink");
 			//figure out last state
 			if((unsigned long)(CurrentLightValues & lightCode) > 0UL) //That light is NOT off
 			{
@@ -341,6 +352,7 @@ void Jag_Lights::HandleLights()
   // Serial.print("Total time processing lights: ");
   // Serial.print(micros() - timeStart);
   // Serial.println(" um");
+  MsTimer2::start();
 } 
 
 void Jag_Lights::Suspend()

@@ -58,13 +58,17 @@ void setup() {
 
   Jag_Lights::ClearLightEvents();
 
-   SetupAllLightsEvents(EVENT_OFF,RGB_WHITE);
-     Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_WHITE, 0, 6);
-    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_WHITE, 1, 6); 
-    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_WHITE, 2, 6); 
-    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_WHITE, 3, 6); 
-    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_WHITE, 4, 6); 
-    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_WHITE, 5, 6);     
+   SetupAllLightsEvents(EVENT_BLINK,RGB_WHITE);
+//   delay(1000);
+//   SetupAllLightsEvents(EVENT_OFF,RGB_WHITE);
+//   delay(1000);
+//   SetupAllLightsEvents(EVENT_ON_COLOR,RGB_WHITE);   
+//     Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_WHITE, 0, 6);
+//    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_WHITE, 1, 6); 
+//    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_WHITE, 2, 6); 
+//    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_WHITE, 3, 6); 
+//    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_WHITE, 4, 6); 
+//    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_WHITE, 5, 6);     
 
   //Serial.println("Program started");
 }
