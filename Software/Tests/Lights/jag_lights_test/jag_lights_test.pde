@@ -3,8 +3,8 @@
 #include <jag_lights.h>
 //Basic program to test the jag_lights library
 
-#define PIN_LIGHTS_SCLK 3 //blue
-#define PIN_LIGHTS_CLK 2 //green
+#define PIN_LIGHTS_SCLK 5 //blue
+#define PIN_LIGHTS_CLK 6 //green
 #define PIN_LIGHTS_SERIAL 7 //white
 
 unsigned long LIGHT_RGB_RIB1 = 7; //               00000000 00000000 00000000 00000111
@@ -58,31 +58,39 @@ void setup() {
 
   Jag_Lights::ClearLightEvents();
 
-  //SetupAllLightsEvents(EVENT_ON_COLOR,RGB_WHITE);
+   SetupAllLightsEvents(EVENT_OFF,RGB_WHITE);
+     Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_WHITE, 0, 6);
+    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_WHITE, 1, 6); 
+    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_WHITE, 2, 6); 
+    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_WHITE, 3, 6); 
+    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_WHITE, 4, 6); 
+    Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_WHITE, 5, 6);     
 
   //Serial.println("Program started");
 }
 
 void loop() {
     
-  // put your main code here, to run repeatedly: 
-    Serial.println("Registering light event ON");    
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_SLICE_ON,RGB_GREEN);
-    delay(10000);
-    Jag_Lights::ClearLightEvents();
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_SLICE_OFF,RGB_GREEN);
-    delay(10000);
-    Jag_Lights::ClearLightEvents();
-    TurnAllLightsOff();
-    SetupAllLightsEvents(EVENT_BLINK,RGB_BLUE);
-    delay(5000);
-    Jag_Lights::ClearLightEvents();
-        
-    Serial.println("Registering light event off");    
-    TurnAllLightsOff();
-    delay(2000);
+
+  
+//  // put your main code here, to run repeatedly: 
+//    Serial.println("Registering light event ON");    
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_SLICE_ON,RGB_GREEN);
+//    delay(10000);
+//    Jag_Lights::ClearLightEvents();
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_SLICE_OFF,RGB_GREEN);
+//    delay(10000);
+//    Jag_Lights::ClearLightEvents();
+//    TurnAllLightsOff();
+//    SetupAllLightsEvents(EVENT_BLINK,RGB_BLUE);
+//    delay(5000);
+//    Jag_Lights::ClearLightEvents();
+//        
+//    Serial.println("Registering light event off");    
+//    TurnAllLightsOff();
+//    delay(2000);
   
 }
 
@@ -90,6 +98,7 @@ void SetupAllLightsEvents(byte eventType,byte color)
 {
     Jag_Lights::RegisterLightEvent(eventType, LIGHT_RGB_CS_CENTER, color, 0, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_CS_TB, color, 1, 10);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RG_START, color, 1, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR6, color, 2, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR5, color, 3, 10);
     Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR4, color, 4, 10);
