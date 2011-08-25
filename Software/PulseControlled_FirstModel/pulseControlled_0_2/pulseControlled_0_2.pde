@@ -69,7 +69,6 @@ int motor_relieveSteps_per_flavour[6] = {4000,4000,4000,4000,4000,4000};
 #define MOTOR_INTER_PULSE_DELAY 2000
 #define MOTOR_RUN_STEPS_PER_CYCLE 200
 #define MAX_NUMBER_OF_FLAVOURS 3
-#define DRIP_DELAY 20000
 
 #define NEW_TUBE_MOTOR_RESET 45000
 #define FLAVOUR_SELECT_TIMEOUT 30000
@@ -115,10 +114,6 @@ unsigned long LIGHT_RGB_RIB5 = 28672; //           00000000 00000000 01110000 00
 unsigned long LIGHT_RGB_RIB6 = 229376; //          00000000 00000011 10000000 00000000
 
 unsigned long LIGHT_RG_START = 786432; //          00000000 00001100 00000000 00000000
-
-unsigned long LIGHT_RG_START_R = 524288; //          00000000 00001000 00000000 00000000
-unsigned long LIGHT_RG_START_Y = 262144; //          00000000 00000100 00000000 00000000
-
 unsigned long LIGHT_WHITE_FLAVOUR1 = 1048576; //   00000000 00010000 00000000 00000000
 unsigned long LIGHT_WHITE_FLAVOUR2 = 2097152; //   00000000 00100000 00000000 00000000
 unsigned long LIGHT_WHITE_FLAVOUR3 = 4194304; //   00000000 01000000 00000000 00000000
@@ -153,6 +148,7 @@ unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 111
 
 
 void setup() {
+  Serial.begin(9600);
   
   //Set input/output modes
   pinMode(PIN_MOTOR_ST, OUTPUT);
@@ -161,8 +157,6 @@ void setup() {
   pinMode(PIN_MOTOR_EN, OUTPUT);
   pinMode(PIN_MOTOR_DIR, OUTPUT);
   pinMode(PIN_MOTOR_PULSE, OUTPUT);
-  //Disable all motors
-  StopAllMotors();
   
   pinMode(PIN_ESTOP_READ, INPUT);
   pinMode(PIN_ESTOP_LOAD, OUTPUT);
@@ -171,10 +165,15 @@ void setup() {
   pinMode(PIN_LIGHTS_SCLK, OUTPUT);
   pinMode(PIN_LIGHTS_CLK, OUTPUT);
   pinMode(PIN_LIGHTS_SERIAL, OUTPUT);
+
+
+  //Set speed
+  //setPwmFrequency(9,4);
   
+  //Disable all motors
+   StopAllMotors();
   
-  Serial.begin(9600);
-  delay(2000);
+    delay(2000);
   
   //Permanently output a PWM output to the MOTOR_PIN_PULSE
   analogWrite(PIN_MOTOR_PULSE, 175);
@@ -201,11 +200,6 @@ void loop() {
   Pour();
   
   CleanUp();
-  
-  delay(DRIP_DELAY);
-  
-  SetLightState_Completed();
-  delay(5000);
   
 }
 
@@ -252,14 +246,12 @@ boolean IsFlavourAvailable(int flavourIndex)
 
 void SelfTest_Motors()
 {
-  Jag_Lights::Suspend();
   //Select each motor and pulse them down, then pulse them up
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
     RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_DOWN);
     RunMotor(i + 1,MOTOR_SELECT_STEPS,DIR_UP);
   }
-  Jag_Lights::Continue();
 }
 
 void ResetAllFlavours()
@@ -306,8 +298,7 @@ waitForFlavourOnly:
   //First, wait for at least one flavour to be selected
   while(HowManyFlavoursSelected < 1)
   {
-    int lightType;
-    lightType = ((unsigned int)(millis() /  3000)) % 3;
+    int lightType = ((unsigned int)(millis() /  3000)) % 3;
     if(lastLightType != lightType)
     {
       lastLightType = lightType;
@@ -356,7 +347,7 @@ waitForFlavourOnly:
       delay(2000);
       ReadInputs();
       unsigned int motorResetConfirm;
-      motorResetConfirm =(unsigned int)( ~AvailableFlavours & FlavoursInReloadPosition);
+      motorResetConfirm = motorToReset & (~AvailableFlavours & FlavoursInReloadPosition);
       if(motorResetConfirm > 0)
       {
         //Wait for release of button
@@ -371,23 +362,6 @@ waitForFlavourOnly:
         delay(3000); //One second delay to allow time for the top estop to release
         while(true)
         {
-          lightType = ((unsigned int)(millis() /  3000)) % 3;
-          if(lastLightType != lightType)
-          {
-            lastLightType = lightType;
-            switch(lightType)
-            {
-              case 0:
-                SetLightState_Reloading1();
-                break;
-              case 1:
-                SetLightState_Reloading2();
-                break;
-              case 2:
-                SetLightState_Reloading3();
-                break;
-            }
-          }
           ReadInputs();
           if(millis() - startTime >= NEW_TUBE_MOTOR_RESET)
           {
@@ -396,7 +370,7 @@ waitForFlavourOnly:
           }
           if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
           {
-            FlavoursReloading = motorResetConfirm;
+            FlavoursReloading = motorResetConfirm & ~AvailableFlavours;
             EEPROM.write(EEPROM_WASINITIALIZED, 0);
             EEPROM.write(EEPROM_FLAVOURSRELOADING, FlavoursReloading);
             RunMultipleMotors(FlavoursReloading, DIR_UP);
@@ -422,33 +396,10 @@ waitForGo:
   unsigned int flavourSelectedTime;
   flavourSelectedTime = millis();
   ReadInputs();
- 
- lastLightType = 0;
-  
   //Now wait for either an extra flavour to be selected/deselected
-  //But also check the "GO" button or reset\
+  //But also check the "GO" button or reset
   while(!IsStartButtonPressed())
   {
-    
-    int lightType;
-    lightType = ((unsigned int)(millis() /  3000)) % 3;
-    if(lastLightType != lightType)
-    {
-      lastLightType = lightType;
-      switch(lightType)
-      {
-        case 0:
-          SetLightState_AtLeastOne1();
-          break;
-        case 1:
-          SetLightState_AtLeastOne2();
-          break;
-        case 2:
-          SetLightState_AtLeastOne3();
-          break;
-      }
-    }
-    
     int savedNumberOfFlavours;
     savedNumberOfFlavours = HowManyFlavoursSelected;
     ReadInFlavourButtons();
@@ -534,8 +485,6 @@ void ResetSelectedMotors()
 // user interrupted
 void Pour()
 {
-  SetLightState_Pouring();
-  
   ReadInputs();    
   PrepSelectedMotors();
   
@@ -860,39 +809,6 @@ void SetLightState_Test()
   SetupAllLightsEvents(EVENT_ON_COLOR,RGB_WHITE);
 }
 
-void RegisterFlavoursLightsToSelect(byte eventType, byte multiplier)
-{
-  int totalSlice = HowManyAvailableFlavours - HowManyFlavoursSelected;
-  
-  for(int i = NUMBER_OF_FLAVOURS - 1; i >= 0; i--)
-  {
-    if(IsFlavourAvailable(i))
-    {
-      if (!SelectedFlavours[i])
-      {
-        Jag_Lights::RegisterLightEvent(eventType , FlavourLightsArray[i], W_ON, (i + 1) % 3, totalSlice ,multiplier);
-      }
-      else
-      {
-        Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR , FlavourLightsArray[i], W_ON, 0, 0,0);
-      }
-    }
-    else
-    {
-      Jag_Lights::RegisterLightEvent(EVENT_OFF , FlavourLightsArray[i], W_ON, 0, 0,0);
-    }
-  }
-}
-
-void AllFlavourButtonsOff()
-{
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR6, 0, 2, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR5, 0, 3, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR4, 0, 4, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR3, 0, 5, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR2, 0, 6, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_WHITE_FLAVOUR1, 0, 7, 10);
-}
 
 void SetLightState_Idle1()
 {
@@ -900,13 +816,18 @@ void SetLightState_Idle1()
   Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RG_START, RG_YELLOW_WHITE, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_RED, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_CS_TB, RGB_RED, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_RED, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_RED, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_RED, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_RED, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_RED, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_RED, 2, 3,4);     
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR6, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR5, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR4, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR3, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR2, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR1, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_RED, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_RED, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_RED, 2, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_RED, 0, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_RED, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_RED, 2, 3);     
 }
 
 void SetLightState_Idle2()
@@ -915,13 +836,18 @@ void SetLightState_Idle2()
   Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RG_START, RG_YELLOW_WHITE, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_GREEN, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_CS_TB, RGB_GREEN, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_GREEN, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_GREEN, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_GREEN, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_GREEN, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_GREEN, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_GREEN, 2, 3,4);     
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR6, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR5, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR4, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR3, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR2, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR1, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_GREEN, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_GREEN, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_GREEN, 2, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_GREEN, 0, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_GREEN, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_GREEN, 2, 3);     
 }
 
 void SetLightState_Idle3()
@@ -930,143 +856,36 @@ void SetLightState_Idle3()
   Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RG_START, RG_YELLOW_WHITE, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_BLUE, 0, 10);
   Jag_Lights::RegisterLightEvent(EVENT_OFF , LIGHT_RGB_CS_TB, RGB_BLUE, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_BLUE, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_BLUE, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_BLUE, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_BLUE, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_BLUE, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_BLUE, 2, 3,4);     
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR6, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR5, W_ON, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR4, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR3, W_ON, 1, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR2, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_WHITE_FLAVOUR1, W_ON, 2, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_BLUE, 0, 3);
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_BLUE, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_BLUE, 2, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_BLUE, 0, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_BLUE, 1, 3); 
+  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_BLUE, 2, 3);     
 }
 
-void SetLightState_AtLeastOne1()
+void SetLightState_AtLeastOne()
 {
-  Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RG_START, RG_GREEN_CYAN, 0, 10,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_CENTER, RGB_GREEN, 0, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR , LIGHT_RGB_CS_TB, RGB_GREEN, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_RED, 0, 3,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_RED, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_RED, 2, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_RED, 0, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_RED, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_RED, 2, 3,2);     
-}
-
-void SetLightState_AtLeastOne2()
-{
-  Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RG_START, RG_GREEN_CYAN, 0, 10,2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_CENTER, RGB_GREEN, 0, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_TB, RGB_GREEN, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_GREEN, 0, 3,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_GREEN, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_GREEN, 2, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_GREEN, 0, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_GREEN, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_GREEN, 2, 3,2);     
-}
-
-void SetLightState_AtLeastOne3()
-{
-  Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RG_START, RG_GREEN_CYAN, 0, 10, 2);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_CENTER, RGB_GREEN, 0, 10);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_TB, RGB_GREEN, 1, 10);
-  RegisterFlavoursLightsToSelect(EVENT_SLICE_OFF,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_BLUE, 0, 3,2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_BLUE, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_BLUE, 2, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_BLUE, 0, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_BLUE, 1, 3,2); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_BLUE, 2, 3,2);     
+   Jag_Lights::ClearLightEvents();
 }
 
 void SetLightState_Pouring()
 {
-  Jag_Lights::ClearLightEvents();
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RG_START_R, W_ON, 0, 2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON, LIGHT_RG_START_Y, W_ON, 0, 2); 
-  
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON, LIGHT_RGB_CS_CENTER, RGB_RED, 0, 2);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON, LIGHT_RGB_CS_TB, RGB_YELLOW, 1, 2);
-  RegisterFlavoursLightsToSelect(EVENT_OFF,1);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_RED, 0, 3,1);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_RED, 1, 3,1); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_RED, 2, 3,1); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_RED, 0, 3,1); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_RED, 1, 3,1); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_RED, 2, 3,1);    
+   Jag_Lights::ClearLightEvents();
 }
 
 void SetLightState_Completed()
 {
-  Jag_Lights::ClearLightEvents();
-  
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RG_START, RG_GREEN_CYAN, 0, 10, 2);
-  
-  Jag_Lights::RegisterLightEvent(EVENT_BLINK, LIGHT_RGB_CS_CENTER, RGB_BLUE, 0, 4,4);
-  Jag_Lights::RegisterLightEvent(EVENT_ON_COLOR, LIGHT_RGB_CS_TB, RGB_WHITE, 1, 2);
-  
-  RegisterFlavoursLightsToSelect(EVENT_ON_COLOR,1);
-  
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB6, RGB_BLUE, 0, 6,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB5, RGB_BLUE, 1, 6,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB4, RGB_BLUE, 2, 6,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB3, RGB_BLUE, 3, 6,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB2, RGB_BLUE, 4, 6,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_OFF , LIGHT_RGB_RIB1, RGB_BLUE, 5, 6,4);  
+   Jag_Lights::ClearLightEvents();
 }
 
-void SetLightState_Reloading1()
+void SetLightState_Reloading()
 {
-  Jag_Lights::ClearLightEvents();
-  
-  AllFlavourButtonsOff();
-  
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_BLUE, 0, 4,4);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_TB, RGB_WHITE, 1, 2);
-  
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_RED, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_RED, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_RED, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_RED, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_RED, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_RED, 2, 3,4);
-}
-
-void SetLightState_Reloading2()
-{
-  Jag_Lights::ClearLightEvents();
-  
-  AllFlavourButtonsOff();
-  
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_BLUE, 0, 4,4);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_TB, RGB_WHITE, 1, 2);
-  
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_GREEN, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_GREEN, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_GREEN, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_GREEN, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_GREEN, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_GREEN, 2, 3,4);
-}
-
-void SetLightState_Reloading3()
-{
-  Jag_Lights::ClearLightEvents();
-  
-  AllFlavourButtonsOff();
-  
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_CENTER, RGB_BLUE, 0, 4,4);
-  Jag_Lights::RegisterLightEvent(EVENT_OFF, LIGHT_RGB_CS_TB, RGB_WHITE, 1, 2);
-  
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB6, RGB_BLUE, 0, 3,4);
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB5, RGB_BLUE, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB4, RGB_BLUE, 2, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB3, RGB_BLUE, 0, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB2, RGB_BLUE, 1, 3,4); 
-  Jag_Lights::RegisterLightEvent(EVENT_SLICE_ON , LIGHT_RGB_RIB1, RGB_BLUE, 2, 3,4);
+   Jag_Lights::ClearLightEvents();
 }
