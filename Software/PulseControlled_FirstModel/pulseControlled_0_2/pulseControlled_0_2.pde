@@ -44,7 +44,7 @@ One Stop/Reset button
 #define PULSE_WIDTH_USEC   5
 #define POLL_DELAY_MSEC   1
 
-#define BYTES_VAL_T unsigned int
+#define BYTES_VAL_T word
 
 //Flavour select pins, use analog inputs
 #define PIN_INPUT_FLAV_1 0
@@ -79,7 +79,7 @@ byte FlavoursInReloadPosition = byte(B00000000);
 byte HowManyAvailableFlavours = NUMBER_OF_FLAVOURS;
 boolean SelectedFlavours[NUMBER_OF_FLAVOURS] = {false, false, false, false, false, false};
 int FlavourSelectInputs[NUMBER_OF_FLAVOURS] = {PIN_INPUT_FLAV_1, PIN_INPUT_FLAV_2, PIN_INPUT_FLAV_3, PIN_INPUT_FLAV_4, PIN_INPUT_FLAV_5, PIN_INPUT_FLAV_6};
-int HowManyFlavoursSelected = 0;
+unsigned int HowManyFlavoursSelected = 0;
 byte FlavoursReloading = byte(B00000000);
 
 boolean manualModeActive = true;
@@ -136,8 +136,8 @@ byte RGB_RED = B100;
 byte RGB_GREEN = B001;
 byte RGB_BLUE = B010;
 byte RGB_YELLOW = B101;
-byte RGB_CYAN = B011;
-byte RGB_MAGENTA = B110;
+byte RGB_CYAN = B110;
+byte RGB_MAGENTA = B011;
 
 //Hard wire blue for 4 colours
 byte RG_YELLOW_WHITE = B11;
@@ -194,8 +194,6 @@ void setup() {
 }
 
 void loop() {
-  ReadInputs();
-  
   WaitForUserInputs();
   
   Pour();
@@ -203,10 +201,8 @@ void loop() {
   CleanUp();
   
   delay(DRIP_DELAY);
-  
   SetLightState_Completed();
   delay(5000);
-  
 }
 
 void InitializeSequence()
@@ -221,11 +217,37 @@ void InitializeSequence()
 //eStop is triggered
 void ReadInputs()
 {
+  BYTES_VAL_T saved_PInputs = PInputs;
+  byte saved_AvailableFlavours = AvailableFlavours;
+  byte saved_FlavoursInReloadPosition = FlavoursInReloadPosition;
+  
   PInputs = ShiftInParallelInputs();
   
-  //Flavours with at least one of the eStop triggered is made unavailable.
+   //Flavours with at least one of the eStop triggered is made unavailable.
   AvailableFlavours = ~(lowByte(PInputs) & B00111111);
-  FlavoursInReloadPosition = (highByte(PInputs)& B00111111);
+  FlavoursInReloadPosition = (highByte(PInputs) & B00111111);
+  
+  if(PInputs != saved_PInputs)
+  {
+    Serial.print("PInputs Changed: ");
+    Serial.print(PInputs,BIN);
+    Serial.println();
+  }
+  
+  if(AvailableFlavours != saved_AvailableFlavours)
+  {
+    Serial.print("AvailableFlavours Changed: ");
+    Serial.print(AvailableFlavours,BIN);
+    Serial.println();
+  }
+  
+  if(FlavoursInReloadPosition != saved_FlavoursInReloadPosition)
+  {
+    Serial.print("FlavoursInReloadPosition Changed: ");
+    Serial.print(FlavoursInReloadPosition,BIN);
+    Serial.println();
+  }
+  
   byte availableCount =0;
   for(int i = 0 ; i < NUMBER_OF_FLAVOURS; i++)
   {
@@ -237,12 +259,30 @@ void ReadInputs()
 
 boolean IsStartButtonPressed()
 {
-  return (word)(PInputs & START) == START;
+  if(((word)(PInputs & START)) > 0)
+  {
+    //Serial.println("START Button was pressed");
+    return true;
+  }
+  else
+  {
+    //Serial.println("START Button NOT pressed");
+    return false;
+  }
 }
 
 boolean IsStopButtonPressed()
 {
-  return (word)(PInputs & STOP) == STOP;  
+  if(((word)(PInputs & STOP)) > 0)
+  {
+    //Serial.println("STOP Button was pressed");
+    return true;
+  }
+  else
+  {
+    //Serial.println("STOP Button NOT pressed");
+    return false;
+  }
 }
 
 boolean IsFlavourAvailable(int flavourIndex)
@@ -285,205 +325,144 @@ void DumpSelectedFlavour()
   Serial.println(HowManyFlavoursSelected); 
 }
 
+//******* new wait for Inputs code *********
 void WaitForUserInputs()
 {
-  int lastLightType;
-  unsigned long count = 0;
-  Serial.print("AvailableFlavours:");
-  Serial.print(AvailableFlavours,BIN);
-  Serial.println();
-  Serial.print("FlavoursInReloadPosition:");
-  Serial.print(FlavoursInReloadPosition,BIN);
-  Serial.println();
-  Serial.print("FlavoursReloading:");
-  Serial.print(FlavoursReloading,BIN);
-  Serial.println();  
+  boolean goPour = false;
+  unsigned int numberOfFlavoursSelected = 0;
+  unsigned int savedNumberSelected = 0;
+  boolean stateReported = false;
+  unsigned long flavourSelectedTime;
+  int lastLightType = -1;
   
-waitForFlavourOnly:
-
-  lastLightType = 0;
-
-  //First, wait for at least one flavour to be selected
-  while(HowManyFlavoursSelected < 1)
-  {
-    int lightType;
-    lightType = ((unsigned int)(millis() /  3000)) % 3;
-    if(lastLightType != lightType)
-    {
-      lastLightType = lightType;
-      switch(lightType)
-      {
-        case 0:
-          SetLightState_Idle1();
-          break;
-        case 1:
-          SetLightState_Idle2();
-          break;
-        case 2:
-          SetLightState_Idle3();
-          break;
-      }
-    }
-    
-    ReadInputs();
-    
-    //Handle exhausted cartridges... move motor to reload position
-    if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
-    {
-      byte newFlavoursReloading;
-      newFlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
-      
-      if(newFlavoursReloading != FlavoursReloading)
-      {
-        EEPROM.write(EEPROM_WASINITIALIZED, 0);
-        EEPROM.write(EEPROM_FLAVOURSRELOADING, newFlavoursReloading);
-      }
-      //Update the FlavoursReloading bit mask and motorMask
-      FlavoursReloading = newFlavoursReloading;
-      RunMultipleMotors(FlavoursReloading, DIR_UP);  
-    } else {
-      StopAllMotors();
-    }
-    
-    //If a flavour is in reload position and operator signals a new cartridge has
-    //been inserted, then moved motor back in position
-    unsigned int motorToReset;
-    motorToReset = (unsigned int)(~AvailableFlavours & FlavoursInReloadPosition);
-    if(motorToReset > 0)
-    {
-      Serial.println("Inside motorToReset confirm");
-      //Wait for confirmation
-      delay(2000);
-      ReadInputs();
-      unsigned int motorResetConfirm;
-      motorResetConfirm =(unsigned int)( ~AvailableFlavours & FlavoursInReloadPosition);
-      if(motorResetConfirm > 0)
-      {
-        //Wait for release of button
-        while((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
-        {
-          ReadInputs();
-        }
-        unsigned long startTime;
-        startTime = millis();
-        
-        RunMultipleMotors(motorResetConfirm,DIR_DOWN);
-        delay(3000); //One second delay to allow time for the top estop to release
-        while(true)
-        {
-          lightType = ((unsigned int)(millis() /  3000)) % 3;
-          if(lastLightType != lightType)
-          {
-            lastLightType = lightType;
-            switch(lightType)
-            {
-              case 0:
-                SetLightState_Reloading1();
-                break;
-              case 1:
-                SetLightState_Reloading2();
-                break;
-              case 2:
-                SetLightState_Reloading3();
-                break;
-            }
-          }
-          ReadInputs();
-          if(millis() - startTime >= NEW_TUBE_MOTOR_RESET)
-          {
-            StopAllMotors();
-            break;
-          }
-          if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
-          {
-            FlavoursReloading = motorResetConfirm;
-            EEPROM.write(EEPROM_WASINITIALIZED, 0);
-            EEPROM.write(EEPROM_FLAVOURSRELOADING, FlavoursReloading);
-            RunMultipleMotors(FlavoursReloading, DIR_UP);
-            break;            
-          }
-        }
-      }
-    }
-    
-    ReadInFlavourButtons(); 
-     count++;  
-    if(count % 1000 == 0)
-    {
-      count = 0;
-      Serial.println("WAITING FOR FLAVOUR");      
-      DumpSelectedFlavour();
-    }
-    
-  }
-  
-waitForGo:
-  StopAllMotors();
-  unsigned int flavourSelectedTime;
-  flavourSelectedTime = millis();
+  //Read in estops
   ReadInputs();
- 
- lastLightType = 0;
   
-  //Now wait for either an extra flavour to be selected/deselected
-  //But also check the "GO" button or reset\
-  while(!IsStartButtonPressed())
-  {
-    
-    int lightType;
-    lightType = ((unsigned int)(millis() /  3000)) % 3;
-    if(lastLightType != lightType)
+  while(!goPour)
+  {    
+    //look for flavour button pressed
+    numberOfFlavoursSelected = ReadInFlavourButtons(); 
+    if(savedNumberSelected != numberOfFlavoursSelected)
     {
-      lastLightType = lightType;
-      switch(lightType)
+      stateReported = false;
+      savedNumberSelected = numberOfFlavoursSelected;
+    }
+    
+    if(numberOfFlavoursSelected == 0)
+    {
+      if(!stateReported)
       {
-        case 0:
-          SetLightState_AtLeastOne1();
+        Serial.println("Waiting for at least one flavour (checking estops for reload)");
+        stateReported = true;
+      }
+      lastLightType = HandleNoneSelectedLights(lastLightType);
+      DealWithExhaustedCartridges();
+    }
+    else
+    {
+      flavourSelectedTime = millis();
+      StopAllMotors();
+      while(numberOfFlavoursSelected > 0 && !goPour)
+      {
+        lastLightType = HandleFlavourSelectedLights(lastLightType);
+        if(!stateReported)
+        {
+          Serial.println("One more flavour OR start button");
+          stateReported = true;
+        }
+        
+        //Read inputs to see if Start button pressed
+        ReadInputs();
+        goPour = IsStartButtonPressed();
+        
+        numberOfFlavoursSelected = ReadInFlavourButtons(); 
+        if((millis() - flavourSelectedTime) >= FLAVOUR_SELECT_TIMEOUT || IsStopButtonPressed())
+        {
+          ResetAllFlavours();
           break;
-        case 1:
-          SetLightState_AtLeastOne2();
-          break;
-        case 2:
-          SetLightState_AtLeastOne3();
-          break;
+        }
       }
     }
     
-    int savedNumberOfFlavours;
-    savedNumberOfFlavours = HowManyFlavoursSelected;
-    ReadInFlavourButtons();
-    if(savedNumberOfFlavours != HowManyFlavoursSelected)
-      flavourSelectedTime = millis();
-    
-    ReadInputs();
-    Serial.print("HowManyFlavoursSelected: ");
-    Serial.print(HowManyFlavoursSelected);
-    Serial.println();
-
-    Serial.print("IsStopButtonPressed: ");
-    Serial.print(IsStopButtonPressed());
-    Serial.println();
-
-    Serial.print("millis() - flavourSelectedTime : ");
-    Serial.print(millis() - flavourSelectedTime);
-    Serial.println();    
-    
-    if(IsStopButtonPressed() || HowManyFlavoursSelected == 0 || (millis() - flavourSelectedTime > FLAVOUR_SELECT_TIMEOUT))
-    {
-      ResetAllFlavours();
-      goto waitForFlavourOnly;
-    }
-    count++;
-    if(count % 1000 == 0)
-    {
-      count = 0;
-      Serial.println("WAITING FOR START");      
-      DumpSelectedFlavour();
-    }
-     ReadInputs();
   }
   
+  Serial.println("**** POURING ****");
+  delay(3000);
 }
+
+void DealWithExhaustedCartridges()
+{
+  word motorToReset = 0;
+  unsigned int motorResetConfirm = 0;
+  unsigned long startTime = 0;
+  int lastLightType = -1;
+  
+  ReadInputs();
+  
+  //Handle exhausted cartridges... move motor to reload position
+  if((unsigned int)(~AvailableFlavours) > 0 || (unsigned int)FlavoursReloading > 0)
+  {
+    byte newFlavoursReloading;
+    newFlavoursReloading = (FlavoursReloading & ~FlavoursInReloadPosition) | (~AvailableFlavours & ~FlavoursInReloadPosition);
+    
+    if(newFlavoursReloading != FlavoursReloading)
+    {
+      EEPROM.write(EEPROM_WASINITIALIZED, 0);
+      EEPROM.write(EEPROM_FLAVOURSRELOADING, newFlavoursReloading);
+    }
+    //Update the FlavoursReloading bit mask and motorMask
+    FlavoursReloading = newFlavoursReloading;
+    RunMultipleMotors(FlavoursReloading, DIR_UP);  
+  } else {
+    StopAllMotors();
+  }
+  
+  //If a flavour is in reload position and operator signals a new cartridge has
+  //been inserted, then moved motor back in position
+  
+  motorToReset = (unsigned int)(~AvailableFlavours & FlavoursInReloadPosition);
+  if(motorToReset > 0)
+  {
+    Serial.println("Inside motorToReset confirm");
+    //Wait for confirmation
+    delay(2000);
+    ReadInputs();
+
+    motorResetConfirm =(unsigned int)( ~AvailableFlavours & FlavoursInReloadPosition);
+    if(motorResetConfirm > 0)
+    {
+      //Wait for release of button
+      while((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
+      {
+        ReadInputs();
+      }
+
+      RunMultipleMotors(motorResetConfirm,DIR_DOWN);
+      startTime = millis();
+      delay(3000); //One second delay to allow time for the top estop to release
+      while(true)
+      {
+        lastLightType = HandleReloadingLights(lastLightType);
+        
+        ReadInputs();
+        if((millis() - startTime) >= NEW_TUBE_MOTOR_RESET)
+        {
+          StopAllMotors();
+          break;
+        }
+        if((unsigned int)(motorResetConfirm & ~AvailableFlavours) > 0)
+        {
+          FlavoursReloading = motorResetConfirm;
+          EEPROM.write(EEPROM_WASINITIALIZED, 0);
+          EEPROM.write(EEPROM_FLAVOURSRELOADING, FlavoursReloading);
+          RunMultipleMotors(FlavoursReloading, DIR_UP);
+          break;            
+        }
+      }
+    }
+  }  
+}
+//******************************************
 
 unsigned int GetMaskForSelectedFlavours()
 {
@@ -505,28 +484,12 @@ unsigned int GetMaskForSelectedFlavours()
 
 void PrepSelectedMotors()
 {
-  
   RunMultipleMotors(GetMaskForSelectedFlavours(), motor_prepSteps_per_flavour[HowManyFlavoursSelected-1],DIR_DOWN);
-//  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-//  {
-//    if(SelectedFlavours[i])
-//    {
-//      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_DOWN);
-//    }
-//  }
 }
 
 void ResetSelectedMotors()
 {
   RunMultipleMotors(GetMaskForSelectedFlavours(), motor_relieveSteps_per_flavour[HowManyFlavoursSelected-1],DIR_UP);
-// 
-//  for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-//  {
-//    if(SelectedFlavours[i])
-//    {
-//      RunMotor(i + 1,MOTOR_PREP_STEPS, DIR_UP);
-//    }
-//  }
 }
 
 
@@ -548,22 +511,12 @@ void Pour()
   while(!IsStopButtonPressed() && stepsPerformed < MAX_STEPS_FILL_TUBE)
   {
     RunMultipleMotors(GetMaskForSelectedFlavours(),MOTOR_RUN_STEPS_PER_CYCLE,DIR_DOWN);    
-//    for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
-//    {
-//      if(digitalRead(PIN_INPUT_STOP) == HIGH)
-//        goto stop_Pouring;
-//      if(SelectedFlavours[i])
-//      {
-//        RunMotor(i+1,MOTOR_RUN_STEPS_PER_CYCLE, DIR_DOWN);
     delay(MOTOR_INTER_PULSE_DELAY);
     stepsPerformed += MOTOR_RUN_STEPS_PER_CYCLE * HowManyFlavoursSelected;
-//      }
     ReadInputs();
 
     if(IsStopButtonPressed() || GetMaskForSelectedFlavours() == 0)
-      goto stop_Pouring;
-        
-//    }
+      break;
 
   }
 
@@ -609,14 +562,14 @@ void RunMotor(int motorNumber, unsigned long runDuration, int dir)
     unsigned long timeNow = millis();
     unsigned int stepCount = 0;
   
-      Serial.println("");
-      
-      Serial.print("Running Motor ");
-      Serial.println(motorNumber);
-      Serial.print("Direction: ");
-      Serial.println(dir);
-      Serial.print("Duration: ");
-      Serial.println(runDuration);
+//      Serial.println("");
+//      
+//      Serial.print("Running Motor ");
+//      Serial.println(motorNumber);
+//      Serial.print("Direction: ");
+//      Serial.println(dir);
+//      Serial.print("Duration: ");
+//      Serial.println(runDuration);
       
       SelectMotor(motorNumber);
       delay(runDuration);
@@ -655,8 +608,9 @@ void CleanUp()
   ResetAllFlavours();
 }
 
-void ReadInFlavourButtons()
+unsigned int ReadInFlavourButtons()
 {
+  unsigned int numberOfFlavoursSelected = HowManyFlavoursSelected;
   
   for(int i = 0; i < NUMBER_OF_FLAVOURS; i++)
   {
@@ -721,6 +675,14 @@ void ReadInFlavourButtons()
     }
     
   }
+  
+  if(HowManyFlavoursSelected != numberOfFlavoursSelected)
+  {
+    Serial.print("Number of flavours selected changed: ");
+    Serial.println(HowManyFlavoursSelected);
+  }
+  
+  return HowManyFlavoursSelected;
    
 }
 
@@ -787,6 +749,7 @@ void SelectMotor(int motorNumber)
 
 BYTES_VAL_T ShiftInParallelInputs()
   {
+    //Jag_Lights::Suspend();
     byte bitVal;
     BYTES_VAL_T bytesVal = 0;
 
@@ -813,11 +776,81 @@ BYTES_VAL_T ShiftInParallelInputs()
         delayMicroseconds(PULSE_WIDTH_USEC);
         digitalWrite(PIN_ESTOP_CLOCK, LOW);
     }
-
+    //Jag_Lights::Continue();
     return(bytesVal);    
   }
 
 ///****** Light states ****////
+int HandleNoneSelectedLights(int lastLightType)
+{
+  int lightType;
+    lightType = ((unsigned int)(millis() /  3000)) % 3;
+    if(lastLightType != lightType)
+    {
+      lastLightType = lightType;
+      switch(lightType)
+      {
+        case 0:
+          SetLightState_Idle1();
+          break;
+        case 1:
+          SetLightState_Idle2();
+          break;
+        case 2:
+          SetLightState_Idle3();
+          break;
+      }
+    }
+    return lastLightType;
+}
+
+int HandleFlavourSelectedLights(int lastLightType)
+{
+    int lightType;
+    lightType = ((unsigned int)(millis() /  3000)) % 3;
+    if(lastLightType != lightType)
+    {
+      lastLightType = lightType;
+      switch(lightType)
+      {
+        case 0:
+          SetLightState_AtLeastOne1();
+          break;
+        case 1:
+          SetLightState_AtLeastOne2();
+          break;
+        case 2:
+          SetLightState_AtLeastOne3();
+          break;
+      }
+    }
+    
+    return lastLightType;
+}
+
+int HandleReloadingLights(int lastLightType)
+{
+    int lightType;
+    lightType = ((unsigned int)(millis() /  3000)) % 3;
+    if(lastLightType != lightType)
+    {
+      lastLightType = lightType;
+      switch(lightType)
+      {
+        case 0:
+          SetLightState_Reloading1();
+          break;
+        case 1:
+          SetLightState_Reloading2();
+          break;
+        case 2:
+          SetLightState_Reloading3();
+          break;
+      }
+    }
+    return lastLightType;
+}
+
 void SetupAllLightsEvents(byte eventType,byte color)
 {
     Jag_Lights::ClearLightEvents();
