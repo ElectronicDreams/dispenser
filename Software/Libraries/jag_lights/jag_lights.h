@@ -46,6 +46,7 @@ namespace Jag_Lights {
 //public:
 	void SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, int pin_LIGHTS_CLK, int pin_LIGHTS_SERIAL);
 	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices);
+	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier);
 	void ClearLightEvents();
 	void HandleLights();
 	void Suspend();
