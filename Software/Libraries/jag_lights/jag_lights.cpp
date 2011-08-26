@@ -61,7 +61,10 @@ void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte
   
   MsTimer2::start();
 }
-
+void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier)
+{
+	Jag_Lights::RegisterLightEvent( eventType, lightCode, color,  slice,  totalSlices);
+}
 
 void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices)
 {
@@ -240,7 +243,7 @@ void Jag_Lights::HandleLights()
         break;
        
       case EVENT_BLINK:
-			Serial.println("inside blink");
+			// Serial.println("inside blink");
         //figure out last state
         if((unsigned long)(CurrentLightValues & lightCode) > 0UL) //That light is NOT off
         {
@@ -285,12 +288,12 @@ void Jag_Lights::HandleLights()
   }
   UpdateLights(CurrentLightValues);
   
-  if(CurrentLightValues != savedLightValue)
-  {
-	  Serial.print("New light value: ");
-	  Serial.print(CurrentLightValues,BIN);
-	  Serial.println();	
-  }
+  // if(CurrentLightValues != savedLightValue)
+  // {
+	  // Serial.print("New light value: ");
+	  // Serial.print(CurrentLightValues,BIN);
+	  // Serial.println();	
+  // }
   
   // Serial.print("Num of events in queue: ");
   // Serial.print(numOfEvents);
