@@ -78,6 +78,8 @@ int motor_relieveSteps_per_flavour[6] = {4000,4000,4000,4000,4000,4000};
 #define TOPUP_WAIT_DELAY 5000
 #define TOPUP_DELAY 40000
 
+#define AUTHORIZE_MODE_CHANGE_DELAY 5000
+
 byte AvailableFlavours = byte(B00111111);
 byte FlavoursInReloadPosition = byte(B00000000);
 byte HowManyAvailableFlavours = NUMBER_OF_FLAVOURS;
@@ -106,6 +108,7 @@ word ESTOP_T_6 = word(B00100000,B00000000);
 
 word START = word(B01000000,B00000000);
 word STOP = word(B10000000,B00000000);
+word AUTHORIZE = word(B00000000,B10000000);
 
 //EEPROM ADDRESSES
 #define EEPROM_WASINITIALIZED 3
@@ -155,6 +158,8 @@ byte W_OFF = B0;
 unsigned long LIGHT_ALL_ON = 4294967295;
 unsigned long CurrentLightValues = LIGHT_ALL_ON; // All On 11111111 11111111 11111111 11111111
 
+unsigned int Authorize_Count = 0;
+byte Authorize_Mode = 0; //0: count based, 1:Infinite
 
 void setup() {
   
@@ -208,6 +213,10 @@ void loop() {
   
   //delay(DRIP_DELAY);
   SetLightState_Completed();
+  if(Authorize_Mode == 0)
+  {
+    Authorize_Count--;
+  }
   delay(5000);
 }
 
@@ -291,6 +300,11 @@ boolean IsStopButtonPressed()
   }
 }
 
+boolean IsAuthorizeButtonPressed()
+{
+  return ((word)(PInputs & AUTHORIZE)) > 0;
+}
+
 boolean IsFlavourAvailable(int flavourIndex)
 {
   return ((unsigned int)((AvailableFlavours & ~FlavoursReloading & ~FlavoursInReloadPosition) & (B00000001 << flavourIndex)) > 0);
@@ -340,14 +354,41 @@ void WaitForUserInputs()
   boolean stateReported = false;
   unsigned long flavourSelectedTime;
   int lastLightType = -1;
+  unsigned long authorized_pressed = 0;
   
-  //Read in estops
-  ReadInputs();
   
   while(!goPour)
   {    
+     //Read in estops
+     ReadInputs();
+     
     //look for flavour button pressed
-    numberOfFlavoursSelected = ReadInFlavourButtons(); 
+    if(Authorize_Mode == 1 || Authorize_Count > 0)
+    {
+      numberOfFlavoursSelected = ReadInFlavourButtons(); 
+    }
+    
+    if(IsStopButtonPressed())
+    {
+      Authorize_Count = 0;
+    }
+    
+    //Listen for Authorize
+    if(IsAuthorizeButtonPressed())
+    {
+      authorized_pressed = millis();
+      ReadInputs();
+      while(IsAuthorizeButtonPressed())
+      {
+        ReadInputs();
+        if((millis() - authorized_pressed) > AUTHORIZE_MODE_CHANGE_DELAY )
+        {
+          Authorize_Mode = 1;
+        }
+      }
+      Authorize_Count++;    
+    }
+    
     if(savedNumberSelected != numberOfFlavoursSelected)
     {
       stateReported = false;
