@@ -12,7 +12,7 @@ unsigned long LIGHT_RGB_RIB2 = 56; //              00000000 00000000 00000000 00
 unsigned long LIGHT_RGB_RIB3 = 448; //             00000000 00000000 00000001 11000000
 unsigned long LIGHT_RGB_RIB4 = 3584; //            00000000 00000000 00001110 00000000
 unsigned long LIGHT_RGB_RIB5 = 28672; //           00000000 00000000 01110000 00000000
-unsigned long LIGHT_RGB_RIB6 = 229376; //          00000000 00000011 10000000 00000000
+unsigned long LIGHT_RGB_RIB6 = 22976; //          00000000 00000011 10000000 00000000
 
 unsigned long LIGHT_RG_START = 786432; //          00000000 00001100 00000000 00000000
 unsigned long LIGHT_WHITE_FLAVOUR1 = 1048576; //   00000000 00010000 00000000 00000000
@@ -58,7 +58,7 @@ void setup() {
 
   Jag_Lights::ClearLightEvents();
 
-   SetupAllLightsEvents(EVENT_BLINK,RGB_WHITE);
+   SetupAllLightsEvents(EVENT_BLINK,RGB_WHITE,10);
 //   delay(1000);
 //   SetupAllLightsEvents(EVENT_OFF,RGB_WHITE);
 //   delay(1000);
@@ -98,27 +98,27 @@ void loop() {
   
 }
 
-void SetupAllLightsEvents(byte eventType,byte color)
+void SetupAllLightsEvents(byte eventType,byte color, byte multiplier)
 {
-    Jag_Lights::RegisterLightEvent(eventType, LIGHT_RGB_CS_CENTER, color, 0, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_CS_TB, color, 1, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RG_START, color, 1, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR6, color, 2, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR5, color, 3, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR4, color, 4, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR3, color, 5, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR2, color, 6, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR1, color, 7, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB6, color, 8, 10);
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB5, color, 9, 10); 
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB4, color, 9, 10); 
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB3, color, 9, 10); 
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB2, color, 9, 10); 
-    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB1, color, 9, 10);     
+    Jag_Lights::RegisterLightEvent(eventType, LIGHT_RGB_CS_CENTER, color, 0, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_CS_TB, color, 1, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RG_START, color, 1, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR6, color, 2, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR5, color, 3, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR4, color, 4, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR3, color, 5, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR2, color, 6, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_WHITE_FLAVOUR1, color, 7, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB6, color, 8, 10,multiplier);
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB5, color, 9, 10,multiplier); 
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB4, color, 9, 10,multiplier); 
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB3, color, 9, 10,multiplier); 
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB2, color, 9, 10,multiplier); 
+    Jag_Lights::RegisterLightEvent(eventType , LIGHT_RGB_RIB1, color, 9, 10,multiplier);     
 }
 
 void TurnAllLightsOff()
 {
-  SetupAllLightsEvents(EVENT_OFF,0);
+  SetupAllLightsEvents(EVENT_OFF,0,1);
 }
 
