@@ -18,6 +18,7 @@
 	QueueList<byte> Jag_Lights::q_slice;
 	QueueList<byte> Jag_Lights::q_totalSlices;
 	QueueList<byte> Jag_Lights::q_multiplier;
+	QueueList<byte> Jag_Lights::q_eventCount;
 
 	QueueList<byte> Jag_Lights::q_t_eventType;
 	QueueList<unsigned long> Jag_Lights::q_t_lightCode;
@@ -25,6 +26,7 @@
 	QueueList<byte> Jag_Lights::q_t_slice;
 	QueueList<byte> Jag_Lights::q_t_totalSlices;	
 	QueueList<byte> Jag_Lights::q_t_multiplier;	
+	QueueList<byte> Jag_Lights::q_t_eventCount;	
 
 void Jag_Lights::SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, int pin_LIGHTS_CLK, int pin_LIGHTS_SERIAL)
 {  
@@ -53,9 +55,14 @@ void Jag_Lights::SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, in
 
 void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices)
 {
-  Jag_Lights::RegisterLightEvent( eventType, lightCode, color,  slice,  totalSlices, 1);
+  Jag_Lights::RegisterLightEvent( eventType, lightCode, color,  slice,  totalSlices, 1, 1);
 }
+
 void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier)
+{
+  Jag_Lights::RegisterLightEvent( eventType, lightCode, color,  slice,  totalSlices, multiplier, 1);
+}
+void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier, byte eventCount)
 {
 	MsTimer2::stop();
 	  
@@ -65,15 +72,20 @@ void Jag_Lights::RegisterLightEvent(byte eventType, unsigned long lightCode,byte
 	  q_slice.push(slice);
 	  q_totalSlices.push(totalSlices);
 	  q_multiplier.push(multiplier);
+	  q_eventCount.push(eventCount);
 	  
 	  MsTimer2::start();
 	
 }
 void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices)
 {
-	Jag_Lights::RegisterTempLightEvent( eventType, lightCode, color,  slice,  totalSlices, 1);
+	Jag_Lights::RegisterTempLightEvent( eventType, lightCode, color,  slice,  totalSlices, 1, 1);
 }
 void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier)
+{
+	Jag_Lights::RegisterTempLightEvent( eventType, lightCode, color,  slice,  totalSlices, multiplier, 1);
+}
+void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier, byte eventCount)
 {
   MsTimer2::stop();
   
@@ -83,7 +95,8 @@ void Jag_Lights::RegisterTempLightEvent(byte eventType, unsigned long lightCode,
   q_t_slice.push(slice);
   q_t_totalSlices.push(totalSlices);
   q_t_multiplier.push(multiplier);
-  
+  q_t_eventCount.push(eventCount);
+ 
   MsTimer2::start();
 }
 
@@ -100,6 +113,7 @@ void Jag_Lights::ClearLightEvents()
     q_slice.pop();
     q_totalSlices.pop();
 	q_multiplier.pop();
+	q_eventCount.pop();
   }
   MsTimer2::start();
 }
@@ -199,6 +213,7 @@ void Jag_Lights::HandleLights()
   byte slice;
   byte totalSlices;
   byte multiplier;
+  byte eventCount;
   LightEventSliceCount++;
   unsigned long savedLightValue;
   int numOfEvents = 0;
@@ -212,6 +227,7 @@ void Jag_Lights::HandleLights()
     slice = q_slice.pop();
     totalSlices = q_totalSlices.pop();  
     multiplier = q_multiplier.pop(); 
+	eventCount = q_eventCount.pop();
 	
 	// Serial.println("Event registered:");
 	// Serial.print("type: ");
@@ -258,45 +274,68 @@ void Jag_Lights::HandleLights()
         //figure out last state
 		if(LightEventSliceCount % multiplier == 0) 
 		{
+			Serial.println();
+			Serial.print("Light code : ");
+			Serial.print(lightCode, BIN);
 			if((unsigned long)(CurrentLightValues & lightCode) > 0UL) //That light is NOT off
 			{
-			  Serial.println("Blink OFF");
+			  Serial.println(" Blink OFF");
 			  //light was on, turn it off
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
 			}
 			else
 			{
-			  Serial.println("Blink ON");
+			  Serial.println(" Blink ON");
 			  
 			  //light was off, turn it on
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);                  
 			}
 		}
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices, multiplier);
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices, multiplier, eventCount);
         break;
         
       case EVENT_SLICE_ON:
-        if(LightEventSliceCount % totalSlices == slice)
-        {
-          CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color); 
-        }
-        else
-        {
-          CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
-        }
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);
+		if(LightEventSliceCount % multiplier == 0) 
+		{
+			Serial.println();
+			Serial.print("Light code : ");
+			Serial.print(lightCode, BIN);
+			
+			if(eventCount % totalSlices == slice)
+			{
+				Serial.println(" Slice ON");
+			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color); 
+			}
+			else
+			{
+				Serial.println(" Slice OFF");
+			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
+			}
+			eventCount++;
+		}
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices, multiplier, eventCount);
         break;
         
       case EVENT_SLICE_OFF:
-        if(LightEventSliceCount % totalSlices == slice)
-        {
-          CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF); 
-        }
-        else
-        {
-          CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);
-        }
-        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices);      
+		if(LightEventSliceCount % multiplier == 0) 
+		{
+			Serial.println();
+			Serial.print("Light code : ");
+			Serial.print(lightCode, BIN);
+		
+			if(eventCount % totalSlices == slice)
+			{
+				Serial.println(" Slice OFF");
+			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF); 
+			}
+			else
+			{
+				Serial.println(" Slice ON");
+			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);
+			}
+			eventCount++;
+		}
+        RegisterTempLightEvent(eventType,lightCode,color,slice,totalSlices, multiplier, eventCount);      
         break;
     }  
   }
@@ -325,6 +364,7 @@ void Jag_Lights::HandleLights()
     q_color.push(q_t_color.pop());
     q_totalSlices.push(q_t_totalSlices.pop());
 	q_multiplier.push(q_t_multiplier.pop());
+	q_eventCount.push(q_t_eventCount.pop());
   } 
   // Serial.print("Num of recurring events in queue: ");
   // Serial.print(numOfEvents);

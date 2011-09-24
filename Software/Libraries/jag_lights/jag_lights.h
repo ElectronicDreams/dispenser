@@ -30,14 +30,18 @@ namespace Jag_Lights {
 	extern QueueList<byte> q_slice;
 	extern QueueList<byte> q_totalSlices;
 	extern QueueList<byte> q_multiplier;
+	extern QueueList<byte> q_eventCount;
 
 	extern QueueList<byte> q_t_eventType;
 	extern QueueList<unsigned long> q_t_lightCode;
 	extern QueueList<byte> q_t_color;
 	extern QueueList<byte> q_t_slice;
 	extern QueueList<byte> q_t_totalSlices;	
-	extern QueueList<byte> q_t_multiplier;	
+	extern QueueList<byte> q_t_multiplier;
+	extern QueueList<byte> q_t_eventCount;
 	
+	void RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier, byte eventCount);
+
 	void RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier);
 	void RegisterTempLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices);
 	
@@ -50,6 +54,8 @@ namespace Jag_Lights {
 	void SetupLights(unsigned long initialValue, int pin_LIGHTS_SCLK, int pin_LIGHTS_CLK, int pin_LIGHTS_SERIAL);
 	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices);
 	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier);
+	void RegisterLightEvent(byte eventType, unsigned long lightCode,byte color, byte slice, byte totalSlices, byte multiplier, byte eventCount);
+
 	void ClearLightEvents();
 	void HandleLights();
 	void Suspend();
