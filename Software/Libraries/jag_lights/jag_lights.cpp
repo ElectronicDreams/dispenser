@@ -274,18 +274,18 @@ void Jag_Lights::HandleLights()
         //figure out last state
 		if(LightEventSliceCount % multiplier == 0) 
 		{
-			Serial.println();
-			Serial.print("Light code : ");
-			Serial.print(lightCode, BIN);
+			// Serial.println();
+			// Serial.print("Light code : ");
+			// Serial.print(lightCode, BIN);
 			if((unsigned long)(CurrentLightValues & lightCode) > 0UL) //That light is NOT off
 			{
-			  Serial.println(" Blink OFF");
+			  //Serial.println(" Blink OFF");
 			  //light was on, turn it off
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
 			}
 			else
 			{
-			  Serial.println(" Blink ON");
+			  //Serial.println(" Blink ON");
 			  
 			  //light was off, turn it on
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);                  
@@ -297,18 +297,18 @@ void Jag_Lights::HandleLights()
       case EVENT_SLICE_ON:
 		if(LightEventSliceCount % multiplier == 0) 
 		{
-			Serial.println();
-			Serial.print("Light code : ");
-			Serial.print(lightCode, BIN);
+			// Serial.println();
+			// Serial.print("Light code : ");
+			// Serial.print(lightCode, BIN);
 			
 			if(eventCount % totalSlices == slice)
 			{
-				Serial.println(" Slice ON");
+				//Serial.println(" Slice ON");
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color); 
 			}
 			else
 			{
-				Serial.println(" Slice OFF");
+				//Serial.println(" Slice OFF");
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF);
 			}
 			eventCount++;
@@ -319,18 +319,18 @@ void Jag_Lights::HandleLights()
       case EVENT_SLICE_OFF:
 		if(LightEventSliceCount % multiplier == 0) 
 		{
-			Serial.println();
-			Serial.print("Light code : ");
-			Serial.print(lightCode, BIN);
+			// Serial.println();
+			// Serial.print("Light code : ");
+			// Serial.print(lightCode, BIN);
 		
 			if(eventCount % totalSlices == slice)
 			{
-				Serial.println(" Slice OFF");
+				//Serial.println(" Slice OFF");
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,t_RGB_OFF); 
 			}
 			else
 			{
-				Serial.println(" Slice ON");
+				//Serial.println(" Slice ON");
 			  CurrentLightValues = (CurrentLightValues | lightCode) & ShiftLightColorIn(lightCode,color);
 			}
 			eventCount++;
