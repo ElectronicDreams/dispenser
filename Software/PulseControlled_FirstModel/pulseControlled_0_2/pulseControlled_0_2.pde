@@ -66,7 +66,7 @@ One Stop/Reset button
 #define MOTOR_ESTOP_INCREMENT 200
 int motor_prepSteps_per_flavour[6] = {3000,3000,3000,3000,3000,3000};
 int motor_relieveSteps_per_flavour[6] = {3000,3000,3000,3000,3000,3000};
-#define MOTOR_INTER_PULSE_DELAY 500
+#define MOTOR_INTER_PULSE_DELAY 2000
 #define MOTOR_RUN_STEPS_PER_CYCLE 100
 #define MAX_NUMBER_OF_FLAVOURS 3
 #define DRIP_DELAY 20000
