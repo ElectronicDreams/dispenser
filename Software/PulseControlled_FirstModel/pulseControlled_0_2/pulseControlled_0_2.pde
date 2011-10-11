@@ -64,21 +64,21 @@ One Stop/Reset button
 
 #define MOTOR_SELECT_STEPS 200
 #define MOTOR_ESTOP_INCREMENT 200
-int motor_prepSteps_per_flavour[6] = {3000,3000,3000,3000,3000,3000};
-int motor_relieveSteps_per_flavour[6] = {3000,3000,3000,3000,3000,3000};
+int motor_prepSteps_per_flavour[6] = {10000,10000,10000,10000,10000,10000};
+int motor_relieveSteps_per_flavour[6] = {10000,10000,10000,10000,10000,10000};
 #define MOTOR_INTER_PULSE_DELAY 2000
 #define MOTOR_RUN_STEPS_PER_CYCLE 100
 #define MAX_NUMBER_OF_FLAVOURS 3
-#define DRIP_DELAY 20000
+#define DRIP_DELAY 5000
 
 #define NEW_TUBE_MOTOR_RESET 45000
 #define FLAVOUR_SELECT_TIMEOUT 30000
 
 #define MOTOR_TOPUP_STEPS 200
 #define TOPUP_WAIT_DELAY 5000
-#define TOPUP_DELAY 40000
+#define TOPUP_DELAY 5000
 
-#define AUTHORIZE_MODE_CHANGE_DELAY 5000
+#define AUTHORIZE_MODE_CHANGE_DELAY 2000
 
 byte AvailableFlavours = byte(B00111111);
 byte FlavoursInReloadPosition = byte(B00000000);
