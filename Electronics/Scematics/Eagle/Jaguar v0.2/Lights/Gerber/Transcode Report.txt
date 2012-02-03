@@ -1,0 +1,84 @@
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GTS' ----   Tue Dec 13 21:22:28 2011
+
+D10   --> D100
+D11   --> D101
+D12   --> D102
+D13   --> D103
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GTL' ----   Tue Dec 13 21:22:28 2011
+
+D10   --> D104
+D11   --> D105
+D12   --> D106
+D13   --> D107
+D14   --> D108
+D15   --> D109
+D16   --> D110
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GBL' ----   Tue Dec 13 21:22:28 2011
+
+D10   --> D111
+D11   --> D112
+D12   --> D113
+D13   --> D114
+D14   --> D115
+D15   --> D116
+D16   --> D117
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GBS' ----   Tue Dec 13 21:22:28 2011
+
+D10   --> D118
+D11   --> D119
+D12   --> D120
+D13   --> D121
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GTS' ----   Tue Dec 13 21:35:16 2011
+
+D10   --> D122
+D11   --> D123
+D12   --> D124
+D13   --> D125
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GTL' ----   Tue Dec 13 21:35:16 2011
+
+D10   --> D126
+D11   --> D127
+D12   --> D128
+D13   --> D129
+D14   --> D130
+D15   --> D131
+D16   --> D132
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GBL' ----   Tue Dec 13 21:35:16 2011
+
+D10   --> D133
+D11   --> D134
+D12   --> D135
+D13   --> D136
+D14   --> D137
+D15   --> D138
+D16   --> D139
+-----------------------------------------------------------------
+
+
+   ---- Transcoding 'C:\Documents and Settings\pascal\My Documents\LipLabz\Electronics\Scematics\Eagle\Jaguar v0.2\Gerber\lights.GBS' ----   Tue Dec 13 21:35:16 2011
+
+D10   --> D140
+D11   --> D141
+D12   --> D142
+D13   --> D143
+-----------------------------------------------------------------
